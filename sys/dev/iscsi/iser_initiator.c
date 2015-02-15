@@ -1,0 +1,519 @@
+/*-
+ * Copyright (c) 2012 The FreeBSD Foundation
+ * All rights reserved.
+ *
+ * This software was developed by Edward Tomasz Napierala under sponsorship
+ * from the FreeBSD Foundation.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ *
+ */
+
+/*
+ * iSER initiator.
+ */
+
+#include "icl_iser.h"
+
+static MALLOC_DEFINE(M_ISER_INITIATOR, "iser_initiator", "iser initiator backend");
+
+/* Register user buffer memory and initialize passive rdma
+ *  dto descriptor. Data size is stored in
+ *  task->data[ISER_DIR_IN].data_len, Protection size
+ *  os stored in task->prot[ISER_DIR_IN].data_len
+ */
+static int
+iser_prepare_read_cmd(struct icl_iser_pdu *iser_pdu)
+{
+	struct iser_device  *device = iser_pdu->iser_conn->ib_conn.device;
+	struct iser_mem_reg *mem_reg;
+	int err;
+	struct iser_hdr *hdr = &iser_pdu->desc.iser_header;
+	struct iser_data_buf *buf_in = &iser_pdu->data[ISER_DIR_IN];
+
+	//printf("%s: device %p\n", __func__, device);
+	err = iser_dma_map_task_data(iser_pdu,
+				     buf_in,
+				     ISER_DIR_IN,
+				     DMA_FROM_DEVICE);
+	if (err)
+		return err;
+
+	err = device->iser_reg_rdma_mem(iser_pdu, ISER_DIR_IN);
+	if (err) {
+		printf("%s: Failed to set up Data-IN RDMA\n", __func__);
+		return err;
+	}
+
+	mem_reg = &iser_pdu->rdma_reg[ISER_DIR_IN];
+
+	hdr->flags    |= ISER_RSV;
+	hdr->read_stag = cpu_to_be32(mem_reg->rkey);
+	hdr->read_va   = cpu_to_be64(mem_reg->sge.addr);
+
+	/*printf("%s: READ tags RKEY:%#.4X VA:%#llX\n", __func__,
+		 mem_reg->rkey, (unsigned long long)mem_reg->sge.addr);*/
+
+	return 0;
+}
+
+/* Register user buffer memory and initialize passive rdma
+ *  dto descriptor. Data size is stored in
+ *  task->data[ISER_DIR_OUT].data_len, Protection size
+ *  is stored at task->prot[ISER_DIR_OUT].data_len
+ */
+static int
+iser_prepare_write_cmd(struct icl_iser_pdu *iser_pdu)
+{
+	struct iser_device  *device = iser_pdu->iser_conn->ib_conn.device;
+	struct iser_mem_reg *mem_reg;
+	int err;
+	struct iser_hdr *hdr = &iser_pdu->desc.iser_header;
+	struct iser_data_buf *buf_out = &iser_pdu->data[ISER_DIR_OUT];
+
+	//printf("%s: device %p\n", __func__, device);
+	err = iser_dma_map_task_data(iser_pdu,
+			       buf_out,
+				   ISER_DIR_OUT,
+				   DMA_TO_DEVICE);
+	if (err)
+		return err;
+
+	err = device->iser_reg_rdma_mem(iser_pdu, ISER_DIR_OUT);
+	if (err) {
+		printf("%s: Failed to set up Data-out RDMA\n", __func__);
+		return err;
+	}
+
+	mem_reg = &iser_pdu->rdma_reg[ISER_DIR_OUT];
+
+	hdr->flags     |= ISER_WSV;
+	hdr->write_stag = cpu_to_be32(mem_reg->rkey);
+	hdr->write_va   = cpu_to_be64(mem_reg->sge.addr);
+
+	/*printf("%s: WRITE tags RKEY:%#.4X VA:%#llX\n", __func__,
+		 mem_reg->rkey, (unsigned long long)mem_reg->sge.addr);*/
+
+	return 0;
+}
+
+/* creates a new tx descriptor and adds header regd buffer */
+void
+iser_create_send_desc(struct iser_conn	*iser_conn,
+				  struct iser_tx_desc	*tx_desc)
+{
+	struct iser_device *device = iser_conn->ib_conn.device;
+
+	//printf("%s: conn %p \n", __func__, iser_conn);
+	ib_dma_sync_single_for_cpu(device->ib_device,
+		tx_desc->dma_addr, ISER_HEADERS_LEN, DMA_TO_DEVICE);
+
+	memset(&tx_desc->iser_header, 0, sizeof(struct iser_hdr));
+	tx_desc->iser_header.flags = ISER_VER;
+
+	tx_desc->num_sge = 1;
+
+	if (tx_desc->tx_sg[0].lkey != device->mr->lkey) {
+		tx_desc->tx_sg[0].lkey = device->mr->lkey;
+		printf("sdesc %p lkey mismatch, fixing\n", tx_desc);
+	}
+}
+
+void
+iser_free_login_buf(struct iser_conn *iser_conn)
+{
+	struct iser_device *device = iser_conn->ib_conn.device;
+
+	//printf("%s\n", __func__);
+	if (!iser_conn->login_buf)
+		return;
+
+	if (iser_conn->login_req_dma)
+		ib_dma_unmap_single(device->ib_device,
+				    iser_conn->login_req_dma,
+				    ISCSI_DEF_MAX_RECV_SEG_LEN, DMA_TO_DEVICE);
+
+	if (iser_conn->login_resp_dma)
+		ib_dma_unmap_single(device->ib_device,
+				    iser_conn->login_resp_dma,
+				    ISER_RX_LOGIN_SIZE, DMA_FROM_DEVICE);
+
+	free(iser_conn->login_buf, M_ISER_INITIATOR);
+
+	/* make sure we never redo any unmapping */
+	iser_conn->login_req_dma = 0;
+	iser_conn->login_resp_dma = 0;
+	iser_conn->login_buf = NULL;
+}
+
+int
+iser_alloc_login_buf(struct iser_conn *iser_conn)
+{
+	struct iser_device *device = iser_conn->ib_conn.device;
+	int			req_err, resp_err;
+
+	//printf("%s\n", __func__);
+	BUG_ON(device == NULL);
+
+	iser_conn->login_buf = malloc(ISCSI_DEF_MAX_RECV_SEG_LEN + ISER_RX_LOGIN_SIZE,
+			M_ISER_INITIATOR, M_WAITOK | M_ZERO);
+
+	if (!iser_conn->login_buf)
+		goto out_err;
+
+	iser_conn->login_req_buf  = iser_conn->login_buf;
+	iser_conn->login_resp_buf = iser_conn->login_buf +
+						ISCSI_DEF_MAX_RECV_SEG_LEN;
+
+	iser_conn->login_req_dma = ib_dma_map_single(device->ib_device,
+						     iser_conn->login_req_buf,
+						     ISCSI_DEF_MAX_RECV_SEG_LEN,
+						     DMA_TO_DEVICE);
+
+	iser_conn->login_resp_dma = ib_dma_map_single(device->ib_device,
+						      iser_conn->login_resp_buf,
+						      ISER_RX_LOGIN_SIZE,
+						      DMA_FROM_DEVICE);
+
+	req_err  = ib_dma_mapping_error(device->ib_device,
+					iser_conn->login_req_dma);
+	resp_err = ib_dma_mapping_error(device->ib_device,
+					iser_conn->login_resp_dma);
+
+	if (req_err || resp_err) {
+		if (req_err)
+			iser_conn->login_req_dma = 0;
+		if (resp_err)
+			iser_conn->login_resp_dma = 0;
+		goto free_login_buf;
+	}
+	return 0;
+
+free_login_buf:
+	iser_free_login_buf(iser_conn);
+
+out_err:
+	printf("%s: unable to alloc or map login buf\n", __func__);
+	return -ENOMEM;
+}
+
+int iser_alloc_rx_descriptors(struct iser_conn *iser_conn, int cmds_max)
+{
+	int i, j;
+	u64 dma_addr;
+	struct iser_rx_desc *rx_desc;
+	struct ib_sge       *rx_sg;
+	struct ib_conn *ib_conn = &iser_conn->ib_conn;
+	struct iser_device *device = ib_conn->device;
+
+	//printf("%s: cmds_max %d\n", __func__, cmds_max);
+	iser_conn->qp_max_recv_dtos = cmds_max;
+	iser_conn->min_posted_rx = iser_conn->qp_max_recv_dtos >> 2;
+
+	if (device->iser_alloc_rdma_reg_res(ib_conn, cmds_max))
+		goto create_rdma_reg_res_failed;
+
+
+	iser_conn->num_rx_descs = cmds_max;
+	iser_conn->rx_descs = malloc(iser_conn->num_rx_descs *
+				sizeof(struct iser_rx_desc), M_ISER_INITIATOR,
+				M_WAITOK | M_ZERO);
+	if (!iser_conn->rx_descs)
+		goto rx_desc_alloc_fail;
+
+	rx_desc = iser_conn->rx_descs;
+
+	for (i = 0; i < iser_conn->qp_max_recv_dtos; i++, rx_desc++)  {
+		dma_addr = ib_dma_map_single(device->ib_device, (void *)rx_desc,
+					ISER_RX_PAYLOAD_SIZE, DMA_FROM_DEVICE);
+		if (ib_dma_mapping_error(device->ib_device, dma_addr))
+			goto rx_desc_dma_map_failed;
+
+		rx_desc->dma_addr = dma_addr;
+
+		rx_sg = &rx_desc->rx_sg;
+		rx_sg->addr   = rx_desc->dma_addr;
+		rx_sg->length = ISER_RX_PAYLOAD_SIZE;
+		rx_sg->lkey   = device->mr->lkey;
+	}
+
+	iser_conn->rx_desc_head = 0;
+	return 0;
+
+rx_desc_dma_map_failed:
+	rx_desc = iser_conn->rx_descs;
+	for (j = 0; j < i; j++, rx_desc++)
+		ib_dma_unmap_single(device->ib_device, rx_desc->dma_addr,
+				    ISER_RX_PAYLOAD_SIZE, DMA_FROM_DEVICE);
+	free(iser_conn->rx_descs, M_ISER_INITIATOR);
+	iser_conn->rx_descs = NULL;
+rx_desc_alloc_fail:
+	device->iser_free_rdma_reg_res(ib_conn);
+create_rdma_reg_res_failed:
+	printf("%s: failed allocating rx descriptors / data buffers\n", __func__);
+	return -ENOMEM;
+}
+
+void
+iser_free_rx_descriptors(struct iser_conn *iser_conn)
+{
+	int i;
+	struct iser_rx_desc *rx_desc;
+	struct ib_conn *ib_conn = &iser_conn->ib_conn;
+	struct iser_device *device = ib_conn->device;
+
+	//printf("%s\n", __func__);
+	if (device->iser_free_rdma_reg_res)
+		device->iser_free_rdma_reg_res(ib_conn);
+
+	rx_desc = iser_conn->rx_descs;
+	for (i = 0; i < iser_conn->qp_max_recv_dtos; i++, rx_desc++)
+		ib_dma_unmap_single(device->ib_device, rx_desc->dma_addr,
+				    ISER_RX_PAYLOAD_SIZE, DMA_FROM_DEVICE);
+	free(iser_conn->rx_descs, M_ISER_INITIATOR);
+	/* make sure we never redo any unmapping */
+	iser_conn->rx_descs = NULL;
+}
+
+static void
+iser_csio_to_sg(struct ccb_scsiio *csio, struct iser_data_buf *data_buf)
+{
+	struct scatterlist *sg;
+	void *buf;
+	int i;
+	unsigned int total_left, buflen, offset;
+
+	//printf("%s\n", __func__);
+	buf = csio->data_ptr;
+	total_left = data_buf->data_len;
+	data_buf->size = DIV_ROUND_UP(csio->dxfer_len, PAGE_SIZE);
+	//printf("%s: data size = %d\n", __func__, data_buf->size);
+	sg_init_table(data_buf->sgl, data_buf->size);
+	for (i = 0; i < data_buf->size; i++)  {
+		sg = &data_buf->sgl[i];
+		offset = ((uintptr_t)buf) & ~PAGE_MASK;
+		buflen = min(PAGE_SIZE - offset, total_left);
+		/*printf("%s: [%d] buf %p offset %u bufflen %u\n", __func__,
+				i, buf, offset, buflen);*/
+		sg_set_buf(sg, buf, buflen);
+		buf = (void *)(((u64)buf) + (u64)buflen);
+		total_left -= buflen;
+	}
+}
+
+static inline bool
+iser_signal_comp(u8 sig_count)
+{
+	return ((sig_count % ISER_SIGNAL_CMD_COUNT) == 0);
+}
+
+int
+iser_send_command(struct iser_conn *iser_conn,
+		      struct icl_iser_pdu *iser_pdu)
+{
+	struct iser_data_buf *data_buf;
+	struct iser_tx_desc *tx_desc = &iser_pdu->desc;
+	struct iscsi_bhs_scsi_command *hdr = (struct iscsi_bhs_scsi_command *) &(iser_pdu->desc.iscsi_header);
+	struct ccb_scsiio *csio = iser_pdu->csio;
+	int err = 0;
+	u8 sig_count = ++iser_conn->ib_conn.sig_count;
+
+	/*printf("%s: conn %p opcode %d sgl_count %hu data_len %u\n", __func__, iser_conn,
+			hdr->bhssc_opcode, csio->sglist_cnt, csio->dxfer_len);*/
+	/* build the tx desc regd header and add it to the tx desc dto */
+	tx_desc->type = ISCSI_TX_SCSI_COMMAND;
+	iser_create_send_desc(iser_conn, tx_desc);
+
+	if (hdr->bhssc_flags & BHSSC_FLAGS_R) {
+		data_buf = &iser_pdu->data[ISER_DIR_IN];
+	} else {
+		data_buf = &iser_pdu->data[ISER_DIR_OUT];
+	}
+
+	data_buf->sg = csio->data_ptr;
+	data_buf->data_len = csio->dxfer_len;
+
+	if (likely(csio->dxfer_len))
+		iser_csio_to_sg(csio, data_buf);
+
+	if (hdr->bhssc_flags & BHSSC_FLAGS_R) {
+		err = iser_prepare_read_cmd(iser_pdu);
+		if (err)
+			goto send_command_error;
+	} else if (hdr->bhssc_flags & BHSSC_FLAGS_W) {
+		err = iser_prepare_write_cmd(iser_pdu);
+		if (err)
+			goto send_command_error;
+	}
+
+	err = iser_post_send(&iser_conn->ib_conn, tx_desc,
+				 iser_signal_comp(sig_count));
+	if (!err)
+		return 0;
+
+send_command_error:
+	printf("%s: iser_conn %p itt %u len %u err %d\n", __func__, iser_conn,
+			hdr->bhssc_initiator_task_tag,
+			hdr->bhssc_expected_data_transfer_length,
+			err);
+	return err;
+}
+
+int
+iser_send_control(struct iser_conn *iser_conn,
+		      struct icl_iser_pdu *iser_pdu)
+{
+	struct iser_tx_desc *mdesc;
+	struct iser_device *device;
+	size_t datalen = iser_pdu->icl_pdu.ip_data_len;
+	bool login = false;
+	int err;
+
+	//printf("%s: conn %p\n", __func__, iser_conn);
+
+	mdesc = &iser_pdu->desc;
+
+	/* build the tx desc regd header and add it to the tx desc dto */
+	mdesc->type = ISCSI_TX_CONTROL;
+	iser_create_send_desc(iser_conn, mdesc);
+
+	device = iser_conn->ib_conn.device;
+
+	if (datalen > 0) {
+		struct ib_sge *tx_dsg = &mdesc->tx_sg[1];
+		ib_dma_sync_single_for_cpu(device->ib_device,
+				iser_conn->login_req_dma, datalen,
+				DMA_TO_DEVICE);
+
+		ib_dma_sync_single_for_device(device->ib_device,
+			iser_conn->login_req_dma, datalen,
+			DMA_TO_DEVICE);
+
+		tx_dsg->addr    = iser_conn->login_req_dma;
+		tx_dsg->length  = datalen;
+		tx_dsg->lkey    = device->mr->lkey;
+		mdesc->num_sge = 2;
+		login = true;
+	}
+
+	/*printf("%s: iscsi_op %x dsl %lx, posting login rx buffer\n", __func__,
+			mdesc->iscsi_header.bhs_opcode, datalen);*/
+
+	if (login) {
+		err = iser_post_recvl(iser_conn);
+		if (err)
+			goto send_control_error;
+	}
+
+	err = iser_post_send(&iser_conn->ib_conn, mdesc, true);
+	if (!err)
+		return (0);
+
+send_control_error:
+	printf("%s: conn %p failed err %d\n", __func__, iser_conn, err);
+
+	return (err);
+
+}
+
+/**
+ * iser_rcv_dto_completion - recv DTO completion
+ */
+void
+iser_rcv_completion(struct iser_rx_desc *rx_desc,
+			 unsigned long rx_xfer_len,
+			 struct ib_conn *ib_conn)
+{
+	struct iser_conn *iser_conn = container_of(ib_conn, struct iser_conn,
+						   ib_conn);
+	struct icl_conn *ic = &iser_conn->icl_conn;
+	struct icl_pdu *response;
+	struct iscsi_bhs *hdr;
+	u64 rx_dma;
+	int rx_buflen;
+	int outstanding, count, err;
+
+	//printf("%s\n", __func__);
+	/* differentiate between login to all other PDUs */
+	if ((char *)rx_desc == iser_conn->login_resp_buf) {
+		//printf("%s 1\n", __func__);
+		rx_dma = iser_conn->login_resp_dma;
+		rx_buflen = ISER_RX_LOGIN_SIZE;
+	} else {
+		//printf("%s 2\n", __func__);
+		rx_dma = rx_desc->dma_addr;
+		rx_buflen = ISER_RX_PAYLOAD_SIZE;
+	}
+
+	ib_dma_sync_single_for_cpu(ib_conn->device->ib_device, rx_dma,
+				   rx_buflen, DMA_FROM_DEVICE);
+
+	hdr = &rx_desc->iscsi_header;
+
+	/*printf("op 0x%x dlen %d\n", hdr->bhs_opcode,
+			(int)(rx_xfer_len - ISER_HEADERS_LEN));*/
+
+	response = iser_new_pdu(ic, M_NOWAIT);
+	response->ip_bhs = hdr;
+	/* differentiate between login to all other PDUs */
+	if ((char *)rx_desc == iser_conn->login_resp_buf) {
+		response->ip_data_len = ntoh24(hdr->bhs_data_segment_len);
+		response->ip_data_mbuf = (struct mbuf *)(rx_desc->data);
+	}
+
+	ib_dma_sync_single_for_device(ib_conn->device->ib_device, rx_dma,
+				      rx_buflen, DMA_FROM_DEVICE);
+
+	/* decrementing conn->post_recv_buf_count only --after-- freeing the   *
+	 * task eliminates the need to worry on tasks which are completed in   *
+	 * parallel to the execution of iser_conn_term. So the code that waits *
+	 * for the posted rx bufs refcount to become zero handles everything   */
+	ib_conn->post_recv_buf_count--;
+
+	if (rx_dma == iser_conn->login_resp_dma) {
+		(ic->ic_receive)(response);
+		return;
+	}
+
+	outstanding = ib_conn->post_recv_buf_count;
+	if (outstanding + iser_conn->min_posted_rx <= iser_conn->qp_max_recv_dtos) {
+		count = min(iser_conn->qp_max_recv_dtos - outstanding,
+			    iser_conn->min_posted_rx);
+		err = iser_post_recvm(iser_conn, count);
+		if (err)
+			printf("%s: posting %d rx bufs err %d\n", __func__, count, err);
+	}
+	(ic->ic_receive)(response);
+}
+
+void
+iser_snd_completion(struct iser_tx_desc *tx_desc,
+			struct ib_conn *ib_conn)
+{
+	struct icl_iser_pdu *iser_pdu = container_of(tx_desc, struct icl_iser_pdu, desc);
+	struct iser_conn *iser_conn = iser_pdu->iser_conn;
+
+	//printf("%s\n", __func__);
+	if (tx_desc && tx_desc->type == ISCSI_TX_CONTROL)
+		iser_pdu_free(&iser_conn->icl_conn, &iser_pdu->icl_pdu);
+}
+
