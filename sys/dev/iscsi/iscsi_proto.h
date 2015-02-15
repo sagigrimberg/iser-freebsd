@@ -38,6 +38,8 @@
 #define __CTASSERT(x, y)	typedef char __assert_ ## y [(x) ? 1 : -1]
 #endif
 
+#define ntoh24(p) (((p)[0] << 16) | ((p)[1] << 8) | ((p)[2]))
+
 #define	ISCSI_SNGT(x, y)	((int32_t)(x) - (int32_t)(y) > 0)
 #define	ISCSI_SNLT(x, y)	((int32_t)(x) - (int32_t)(y) < 0)
 
@@ -46,6 +48,7 @@
 #define	ISCSI_DATA_DIGEST_SIZE		4
 
 #define	ISCSI_BHS_OPCODE_IMMEDIATE	0x40
+#define ISCSI_OPCODE_MASK	0x3f
 
 #define	ISCSI_BHS_OPCODE_NOP_OUT	0x00
 #define	ISCSI_BHS_OPCODE_SCSI_COMMAND	0x01
