@@ -867,6 +867,7 @@ iscsi_pdu_handle_scsi_response(struct icl_pdu *response)
 
 	ccb = io->io_ccb;
 	received = io->io_received;
+
 	iscsi_outstanding_remove(is, io);
 	ISCSI_SESSION_UNLOCK(is);
 
@@ -1329,7 +1330,7 @@ iscsi_ioctl_daemon_handoff(struct iscsi_softc *sc,
     struct iscsi_daemon_handoff *handoff)
 {
 	struct iscsi_session *is;
-	int error;
+	int error = 0;
 
 	sx_slock(&sc->sc_lock);
 
@@ -1400,14 +1401,17 @@ iscsi_ioctl_daemon_handoff(struct iscsi_softc *sc,
 		 * Handoff without using ICL proxy.
 		 */
 		error = icl_conn_handoff(is->is_conn, handoff->idh_socket);
-		if (error != 0) {
-			sx_sunlock(&sc->sc_lock);
-			iscsi_session_terminate(is);
-			return (error);
-		}
 #ifdef ICL_KERNEL_PROXY
+	} else {
+		error = icl_conn_handoff(is->is_conn, maxtags);
 	}
 #endif
+
+	if (error != 0) {
+		sx_sunlock(&sc->sc_lock);
+		iscsi_session_terminate(is);
+		return (error);
+	}
 
 	sx_sunlock(&sc->sc_lock);
 
@@ -1598,6 +1602,7 @@ iscsi_ioctl_daemon_send(struct iscsi_softc *sc,
 		KASSERT(error == 0, ("icl_pdu_append_data(..., M_WAITOK) failed"));
 		free(data, M_ISCSI);
 	}
+
 	icl_pdu_queue(ip);
 
 	return (0);
@@ -1611,6 +1616,7 @@ iscsi_ioctl_daemon_receive(struct iscsi_softc *sc,
 	struct icl_pdu *ip;
 	void *data;
 
+	printf("%s\n", __func__);
 	sx_slock(&sc->sc_lock);
 	TAILQ_FOREACH(is, &sc->sc_sessions, is_next) {
 		if (is->is_id == idr->idr_session_id)
@@ -1630,6 +1636,7 @@ iscsi_ioctl_daemon_receive(struct iscsi_softc *sc,
 	    is->is_terminating == false &&
 	    is->is_reconnecting == false)
 		cv_wait(&is->is_login_cv, &is->is_lock);
+
 	if (is->is_terminating || is->is_reconnecting) {
 		ISCSI_SESSION_UNLOCK(is);
 		return (EIO);
