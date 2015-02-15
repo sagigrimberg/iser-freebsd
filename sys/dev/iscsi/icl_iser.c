@@ -1,0 +1,463 @@
+/*-
+ * Copyright (c) 2012 The FreeBSD Foundation
+ * All rights reserved.
+ *
+ * This software was developed by Edward Tomasz Napierala under sponsorship
+ * from the FreeBSD Foundation.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ *
+ */
+
+/*
+ * iSCSI Common Layer for RDMA.
+ */
+
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
+
+#include <sys/param.h>
+#include <sys/capsicum.h>
+#include <sys/condvar.h>
+#include <sys/conf.h>
+#include <sys/file.h>
+#include <sys/kernel.h>
+#include <sys/kthread.h>
+#include <sys/lock.h>
+#include <sys/mbuf.h>
+#include <sys/mutex.h>
+#include <sys/module.h>
+#include <sys/protosw.h>
+#include <sys/socket.h>
+#include <sys/socketvar.h>
+#include <sys/sysctl.h>
+#include <sys/systm.h>
+#include <sys/sx.h>
+#include <sys/uio.h>
+#include <vm/uma.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+
+#include <dev/iscsi/icl.h>
+#include <dev/iscsi/iscsi_proto.h>
+#include <icl_conn_if.h>
+#include "icl_iser.h"
+
+static MALLOC_DEFINE(M_ICL_ISER, "icl_iser", "iSCSI iser backend");
+static uma_zone_t icl_pdu_zone;
+
+static volatile u_int	icl_iser_ncons;
+struct iser_global ig;
+
+static icl_conn_new_pdu_t	iser_conn_new_pdu;
+static icl_conn_pdu_free_t	iser_conn_pdu_free;
+static icl_conn_pdu_data_segment_length_t iser_conn_pdu_data_segment_length;
+static icl_conn_pdu_append_data_t	iser_conn_pdu_append_data;
+static icl_conn_pdu_queue_t	iser_conn_pdu_queue;
+static icl_conn_handoff_t	iser_conn_handoff;
+static icl_conn_free_t		iser_conn_free;
+static icl_conn_close_t		iser_conn_close;
+static icl_conn_connected_t	iser_conn_connected;
+static icl_conn_task_setup_t	iser_conn_task_setup;
+static icl_conn_task_done_t	iser_conn_task_done;
+static icl_conn_pdu_get_data_t	iser_conn_pdu_get_data;
+
+static kobj_method_t icl_iser_methods[] = {
+	KOBJMETHOD(icl_conn_new_pdu, iser_conn_new_pdu),
+	KOBJMETHOD(icl_conn_pdu_free, iser_conn_pdu_free),
+	KOBJMETHOD(icl_conn_pdu_data_segment_length, iser_conn_pdu_data_segment_length),
+	KOBJMETHOD(icl_conn_pdu_append_data, iser_conn_pdu_append_data),
+	KOBJMETHOD(icl_conn_pdu_queue, iser_conn_pdu_queue),
+	KOBJMETHOD(icl_conn_handoff, iser_conn_handoff),
+	KOBJMETHOD(icl_conn_free, iser_conn_free),
+	KOBJMETHOD(icl_conn_close, iser_conn_close),
+	KOBJMETHOD(icl_conn_connected, iser_conn_connected),
+	KOBJMETHOD(icl_conn_task_setup, iser_conn_task_setup),
+	KOBJMETHOD(icl_conn_task_done, iser_conn_task_done),
+	KOBJMETHOD(icl_conn_pdu_get_data, iser_conn_pdu_get_data),
+	{ 0, 0 }
+};
+
+DEFINE_CLASS(icl_iser, icl_iser_methods, sizeof(struct iser_conn));
+
+/**
+ * iser_initialize_headers() - Initialize task headers
+ * @pdu:       iser pdu
+ * @iser_conn:    iser connection
+ *
+ * Notes:
+ * This routine may race with iser teardown flow for scsi
+ * error handling TMFs. So for TMF we should acquire the
+ * state mutex to avoid dereferencing the IB device which
+ * may have already been terminated (racing teardown sequence).
+ */
+int
+iser_initialize_headers(struct icl_iser_pdu *pdu, struct iser_conn *iser_conn)
+{
+	struct iser_tx_desc *tx_desc = &pdu->desc;
+	struct iser_device *device = iser_conn->ib_conn.device;
+	u64 dma_addr;
+	int ret = 0;
+
+	dma_addr = ib_dma_map_single(device->ib_device, (void *)tx_desc,
+				ISER_HEADERS_LEN, DMA_TO_DEVICE);
+	if (ib_dma_mapping_error(device->ib_device, dma_addr)) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	tx_desc->dma_addr = dma_addr;
+	tx_desc->tx_sg[0].addr   = tx_desc->dma_addr;
+	tx_desc->tx_sg[0].length = ISER_HEADERS_LEN;
+	tx_desc->tx_sg[0].lkey   = device->mr->lkey;
+
+out:
+
+	return ret;
+}
+
+int
+iser_conn_pdu_append_data(struct icl_conn *ic, struct icl_pdu *request,
+    const void *addr, size_t len, int flags)
+{
+	struct iser_conn *iser_conn = container_of(ic, struct iser_conn, icl_conn);
+
+	//printf("%s \n", __func__);
+	if (request->ip_bhs->bhs_opcode & ISCSI_BHS_OPCODE_LOGIN_REQUEST) {
+		printf("%s copy to login buff\n", __func__);
+		memcpy(iser_conn->login_req_buf, addr, len);
+		request->ip_data_len = len;
+	}
+
+	return (0);
+}
+
+void
+iser_conn_pdu_get_data(struct icl_conn *ic, struct icl_pdu *ip,
+    size_t off, void *addr, size_t len)
+{
+	//printf("%s \n", __func__);
+
+	/* copy only in case mbuf isn't NULL - login stage */
+	if (ip->ip_data_mbuf)
+		memcpy(addr, ip->ip_data_mbuf + off, len);
+}
+
+/*
+ * Allocate icl_pdu with empty BHS to fill up by the caller.
+ */
+struct icl_pdu *
+iser_new_pdu(struct icl_conn *ic, int flags)
+{
+	struct icl_iser_pdu *iser_pdu;
+	struct icl_pdu *ip;
+	struct iser_conn *iser_conn = container_of(ic, struct iser_conn, icl_conn);
+
+	//printf("%s \n", __func__);
+	iser_pdu = uma_zalloc(icl_pdu_zone, flags | M_ZERO);
+	if (iser_pdu == NULL) {
+		ICL_WARN("failed to allocate %zd bytes", sizeof(struct icl_iser_pdu));
+		return (NULL);
+	}
+	iser_pdu->iser_conn = iser_conn;
+	ip = &iser_pdu->icl_pdu;
+	ip->ip_conn = ic;
+	ip->ip_bhs = &iser_pdu->desc.iscsi_header;
+
+	return (ip);
+}
+
+struct icl_pdu *
+iser_conn_new_pdu(struct icl_conn *ic, int flags)
+{
+	return (iser_new_pdu(ic, flags));
+}
+
+void
+iser_pdu_free(struct icl_conn *ic, struct icl_pdu *ip)
+{
+	struct icl_iser_pdu *iser_pdu = container_of(ip, struct icl_iser_pdu, icl_pdu);
+
+	//printf("%s \n", __func__);
+	uma_zfree(icl_pdu_zone, iser_pdu);
+}
+
+size_t
+iser_conn_pdu_data_segment_length(struct icl_conn *ic,
+    const struct icl_pdu *request)
+{
+
+	return (ntoh24(request->ip_bhs->bhs_data_segment_len));
+}
+
+void
+iser_conn_pdu_free(struct icl_conn *ic, struct icl_pdu *ip)
+{
+	iser_pdu_free(ic, ip);
+}
+
+static bool
+is_control_opcode(uint8_t opcode)
+{
+	bool is_control = false;
+
+	switch (opcode & ISCSI_OPCODE_MASK) {
+		case ISCSI_BHS_OPCODE_NOP_OUT:
+		case ISCSI_BHS_OPCODE_LOGIN_REQUEST:
+		case ISCSI_BHS_OPCODE_LOGOUT_REQUEST:
+			is_control = true;
+			break;
+		case ISCSI_BHS_OPCODE_SCSI_COMMAND:
+			is_control = false;
+			break;
+		default:
+			printf("%s: ### unknown opcode %d ###\n", __func__, opcode);
+	}
+	return is_control;
+}
+
+void
+iser_conn_pdu_queue(struct icl_conn *ic, struct icl_pdu *ip)
+{
+	struct iser_conn *iser_conn = container_of(ic, struct iser_conn, icl_conn);
+	struct icl_iser_pdu *iser_pdu = container_of(ip, struct icl_iser_pdu, icl_pdu);
+
+	//printf("%s\n", __func__);
+	iser_initialize_headers(iser_pdu, iser_conn);
+
+	if (is_control_opcode(ip->ip_bhs->bhs_opcode))
+		iser_send_control(iser_conn, iser_pdu);
+	else
+		iser_send_command(iser_conn, iser_pdu);
+}
+
+static struct icl_conn *
+iser_new_conn(const char *name, struct mtx *lock)
+{
+	struct iser_conn *iser_conn;
+	struct icl_conn *ic;
+
+	printf("%s\n", __func__);
+	refcount_acquire(&icl_iser_ncons);
+
+	iser_conn = (struct iser_conn *)kobj_create(&icl_iser_class, M_ICL_ISER, M_WAITOK | M_ZERO);
+	if (!iser_conn) {
+		printf("failed to allocate iser conn\n");
+		refcount_release(&icl_iser_ncons);
+		return (NULL);
+	}
+	mtx_init(&iser_conn->up_lock, "iser_lock", NULL, MTX_DEF);
+	cv_init(&iser_conn->up_cv, "iser_cv");
+	sx_init(&iser_conn->state_mutex,  "iser_conn_state_mutex");
+	mtx_init(&iser_conn->ib_conn.flush_lock, "flush_lock", NULL, MTX_DEF);
+	cv_init(&iser_conn->ib_conn.flush_cv, "flush_cv");
+	mtx_init(&iser_conn->ib_conn.lock, "lock", NULL, MTX_DEF);
+
+	ic = &iser_conn->icl_conn;
+	ic->ic_lock = lock;
+	ic->ic_name = name;
+	ic->ic_offload = strdup("iser", M_TEMP);
+
+	return (ic);
+}
+
+void
+iser_conn_free(struct icl_conn *ic)
+{
+	struct iser_conn *iser_conn = container_of(ic, struct iser_conn, icl_conn);
+
+	printf("%s\n", __func__);
+
+	cv_destroy(&iser_conn->ib_conn.flush_cv);
+	mtx_destroy(&iser_conn->ib_conn.flush_lock);
+	sx_destroy(&iser_conn->state_mutex);
+	cv_destroy(&iser_conn->up_cv);
+	mtx_destroy(&iser_conn->up_lock);
+	kobj_delete((struct kobj *)iser_conn, M_ICL_ISER);
+	refcount_release(&icl_iser_ncons);
+}
+
+int
+iser_conn_handoff(struct icl_conn *ic, int cmds_max)
+{
+	struct iser_conn *iser_conn = container_of(ic, struct iser_conn, icl_conn);
+
+	printf("%s\n", __func__);
+
+	if (iser_alloc_rx_descriptors(iser_conn, cmds_max))
+		goto out;
+
+	if (iser_post_recvm(iser_conn, iser_conn->min_posted_rx))
+		goto post_error;
+
+	return (0);
+
+post_error:
+	iser_free_rx_descriptors(iser_conn);
+out:
+	printf("%s: fail in handoff stage\n", __func__);
+	return (-ENOMEM);
+
+}
+
+void
+iser_conn_close(struct icl_conn *ic)
+{
+	struct iser_conn *iser_conn = container_of(ic, struct iser_conn, icl_conn);
+
+	printf("%s: closing conn %p \n", __func__, iser_conn);
+	iser_conn_terminate(iser_conn);
+	iser_conn_release(iser_conn);
+
+}
+
+bool
+iser_conn_connected(struct icl_conn *ic)
+{
+	struct iser_conn *iser_conn = container_of(ic, struct iser_conn, icl_conn);
+	bool connected = false;
+
+	printf("%s\n", __func__);
+	sx_slock(&iser_conn->state_mutex);
+	if (iser_conn->state == ISER_CONN_UP)
+		connected = true;
+	sx_sunlock(&iser_conn->state_mutex);
+
+	return (connected);
+}
+
+int
+iser_conn_task_setup(struct icl_conn *ic, struct ccb_scsiio *csio,
+    uint32_t *task_tagp, void **prvp, struct icl_pdu *ip)
+{
+	struct icl_iser_pdu *iser_pdu = container_of(ip, struct icl_iser_pdu, icl_pdu);
+	//printf("%s\n", __func__);
+
+	*prvp = ip;
+	iser_pdu->csio = csio;
+
+	return (0);
+}
+
+void
+iser_conn_task_done(struct icl_conn *ic, void *prv)
+{
+	struct icl_pdu *ip = (struct icl_pdu *)prv;
+	struct icl_iser_pdu *iser_pdu = container_of(ip, struct icl_iser_pdu, icl_pdu);
+	struct iser_device *device = iser_pdu->iser_conn->ib_conn.device;
+
+	//printf("%s\n", __func__);
+	if (iser_pdu->dir[ISER_DIR_IN]) {
+		device->iser_unreg_rdma_mem(iser_pdu, ISER_DIR_IN);
+		iser_dma_unmap_task_data(iser_pdu,
+						 &iser_pdu->data[ISER_DIR_IN],
+						 DMA_FROM_DEVICE);
+	}
+
+	if (iser_pdu->dir[ISER_DIR_OUT]) {
+		device->iser_unreg_rdma_mem(iser_pdu, ISER_DIR_OUT);
+		iser_dma_unmap_task_data(iser_pdu,
+						 &iser_pdu->data[ISER_DIR_OUT],
+						 DMA_TO_DEVICE);
+	}
+	iser_pdu_free(ic, ip);
+
+}
+
+static int
+iser_limits(size_t *limitp)
+{
+
+	printf("%s\n", __func__);
+	*limitp = 128 * 1024;
+
+	return (0);
+}
+
+static int
+icl_iser_load(void)
+{
+	int error;
+
+	printf("%s\n", __func__);
+	icl_pdu_zone = uma_zcreate("icl_iser_pdu",
+	    sizeof(struct icl_iser_pdu), NULL, NULL, NULL, NULL,
+	    UMA_ALIGN_PTR, 0);
+	refcount_init(&icl_iser_ncons, 0);
+
+	error = icl_register("iser", 0, iser_limits, iser_new_conn);
+	KASSERT(error == 0, ("failed to register iser"));
+
+	memset(&ig, 0, sizeof(struct iser_global));
+	/* device init is called only after the first addr resolution */
+	sx_init(&ig.device_list_mutex,  "global_device_lock");
+	INIT_LIST_HEAD(&ig.device_list);
+	mtx_init(&ig.connlist_mutex, "global_conn_lock", NULL, MTX_DEF);
+	INIT_LIST_HEAD(&ig.connlist);
+
+	return (error);
+}
+
+static int
+icl_iser_unload(void)
+{
+	printf("%s\n", __func__);
+
+	if (icl_iser_ncons != 0)
+		return (EBUSY);
+
+	mtx_destroy(&ig.connlist_mutex);
+	sx_destroy(&ig.device_list_mutex);
+
+	icl_unregister("iser");
+
+	uma_zdestroy(icl_pdu_zone);
+
+	return (0);
+}
+
+static int
+icl_iser_modevent(module_t mod, int what, void *arg)
+{
+
+	switch (what) {
+	case MOD_LOAD:
+		return (icl_iser_load());
+	case MOD_UNLOAD:
+		return (icl_iser_unload());
+	default:
+		return (EINVAL);
+	}
+}
+
+moduledata_t icl_iser_data = {
+	"icl_iser",
+	icl_iser_modevent,
+	0
+};
+
+DECLARE_MODULE(icl_iser, icl_iser_data, SI_SUB_DRIVERS, SI_ORDER_MIDDLE);
+MODULE_DEPEND(icl_iser, icl, 1, 1, 1);
+MODULE_DEPEND(icl_iser, ibcore, 1, 1, 1);
+MODULE_DEPEND(icl_iser, linuxapi, 1, 1, 1);
+MODULE_VERSION(icl_iser, 1);
+

@@ -177,6 +177,9 @@ int			icl_listen_remove(struct icl_listen *il, struct sockaddr *sa);
  * This one is not a public API; only to be used by icl_proxy.c.
  */
 int			icl_conn_handoff_sock(struct icl_conn *ic, struct socket *so);
+int			iser_conn_connect(struct icl_conn *ic, int domain, int socktype,
+					  int protocol, struct sockaddr *from_sa,
+					  struct sockaddr *to_sa);
 
 #endif /* ICL_KERNEL_PROXY */
 
