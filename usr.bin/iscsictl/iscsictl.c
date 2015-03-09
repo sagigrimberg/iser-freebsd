@@ -686,7 +686,7 @@ main(int argc, char **argv)
 	int Aflag = 0, Mflag = 0, Rflag = 0, Lflag = 0, aflag = 0, vflag = 0;
 	const char *conf_path = DEFAULT_CONFIG_PATH;
 	char *nickname = NULL, *discovery_host = NULL, *portal = NULL,
-	     *target = NULL, *user = NULL, *secret = NULL;
+	     *target = NULL, *user = NULL, *secret = NULL, *transport = NULL;
 	int timeout = -1;
 	long long session_id = -1;
 	char *end;
@@ -698,7 +698,7 @@ main(int argc, char **argv)
 	argc = xo_parse_args(argc, argv);
 	xo_open_container("iscsictl");
 
-	while ((ch = getopt(argc, argv, "AMRLac:d:i:n:p:t:u:s:vw:")) != -1) {
+	while ((ch = getopt(argc, argv, "AMRLac:d:i:n:p:t:u:s:T:vw:")) != -1) {
 		switch (ch) {
 		case 'A':
 			Aflag = 1;
@@ -731,6 +731,9 @@ main(int argc, char **argv)
 				xo_errx(1, "session-id cannot be greater than %u",
 				    UINT_MAX);
 			break;
+                case 'T':
+                        transport = optarg;
+                        break;
 		case 'n':
 			nickname = optarg;
 			break;
@@ -953,6 +956,13 @@ main(int argc, char **argv)
 			targ->t_session_type = SESSION_TYPE_NORMAL;
 			targ->t_address = portal;
 		}
+                if (transport != NULL) {
+                        if (strcasecmp(transport, "iser") == 0) {
+                                targ->t_protocol = PROTOCOL_ISER;
+                                targ->t_offload = transport;
+                        } else if (strcasecmp(transport, "tcp") != 0)
+                                errx(1, "invalid transport name \"%s\"", transport);
+                }
 		targ->t_user = user;
 		targ->t_secret = secret;
 
