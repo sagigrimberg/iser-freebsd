@@ -148,16 +148,9 @@ iser_create_device_ib_res(struct iser_device *device)
 		return ret;
 	}
 
-	/* Assign function handles  - based on FastReg support */
-	if (dev_attr->device_cap_flags & IB_DEVICE_MEM_MGT_EXTENSIONS) {
-		printf("%s: FastReg supported, using FastReg for registration\n", __func__);
-		device->iser_alloc_rdma_reg_res = iser_create_fastreg_pool;
-		device->iser_free_rdma_reg_res = iser_free_fastreg_pool;
-		device->iser_reg_rdma_mem = iser_reg_rdma_mem_fastreg;
-		device->iser_unreg_rdma_mem = iser_unreg_mem_fastreg;
-	} else {
-		printf("%s: IB device does not support Fastregs, can't register memory\n",
-				__func__);
+	if (!(dev_attr->device_cap_flags & IB_DEVICE_MEM_MGT_EXTENSIONS)) {
+		printf("device %s doesn't support Fastreg, "
+			 "can't register memory\n", device->ib_device->name);
 		return -1;
 	}
 	

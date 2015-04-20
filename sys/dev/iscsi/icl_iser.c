@@ -356,17 +356,16 @@ iser_conn_task_done(struct icl_conn *ic, void *prv)
 {
 	struct icl_pdu *ip = (struct icl_pdu *)prv;
 	struct icl_iser_pdu *iser_pdu = container_of(ip, struct icl_iser_pdu, icl_pdu);
-	struct iser_device *device = iser_pdu->iser_conn->ib_conn.device;
 
 	if (iser_pdu->dir[ISER_DIR_IN]) {
-		device->iser_unreg_rdma_mem(iser_pdu, ISER_DIR_IN);
+		iser_unreg_rdma_mem(iser_pdu, ISER_DIR_IN);
 		iser_dma_unmap_task_data(iser_pdu,
 						 &iser_pdu->data[ISER_DIR_IN],
 						 DMA_FROM_DEVICE);
 	}
 
 	if (iser_pdu->dir[ISER_DIR_OUT]) {
-		device->iser_unreg_rdma_mem(iser_pdu, ISER_DIR_OUT);
+		iser_unreg_rdma_mem(iser_pdu, ISER_DIR_OUT);
 		iser_dma_unmap_task_data(iser_pdu,
 						 &iser_pdu->data[ISER_DIR_OUT],
 						 DMA_TO_DEVICE);
