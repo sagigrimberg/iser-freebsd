@@ -36,7 +36,7 @@ iser_reg_desc_get(struct ib_conn *ib_conn)
 	list_del(&desc->list);
 	mtx_unlock(&ib_conn->lock);
 
-	return desc;
+	return (desc);
 }
 
 static void
@@ -105,7 +105,7 @@ iser_sg_to_page_vec(struct iser_data_buf *data,
 
 	*data_size = total_sz;
 
-	return cur_page;
+	return (cur_page);
 }
 
 /**
@@ -122,7 +122,7 @@ iser_data_buf_aligned_len(struct iser_data_buf *data, struct ib_device *ibdev)
 	int i, ret_len, start_check = 0;
 
 	if (data->dma_nents == 1)
-		return 1;
+		return (1);
 
 	sgl = data->sgl;
 	start_addr  = ib_sg_dma_address(ibdev, sgl);
@@ -227,7 +227,7 @@ iser_fast_reg_mr(struct icl_iser_pdu *iser_pdu,
 				   &offset, &size);
 	if (plen * SIZE_4K < size) {
 		iser_err("fast reg page_list too short to hold this SG");
-		return -EINVAL;
+		return (-EINVAL);
 	}
 
 	if (!rsc->mr_valid) {
@@ -257,7 +257,7 @@ iser_fast_reg_mr(struct icl_iser_pdu *iser_pdu,
 	ret = ib_post_send(ib_conn->qp, wr, &bad_wr);
 	if (ret) {
 		iser_err("fast registration failed, ret:%d", ret);
-		return ret;
+		return (ret);
 	}
 	rsc->mr_valid = 0;
 
@@ -266,7 +266,7 @@ iser_fast_reg_mr(struct icl_iser_pdu *iser_pdu,
 	reg->sge.addr = rsc->frpl->page_list[0] + offset;
 	reg->sge.length = size;
 
-	return ret;
+	return (ret);
 }
 
 /**
@@ -309,7 +309,7 @@ err_reg:
 	if (desc)
 		iser_reg_desc_put(ib_conn, desc);
 
-	return err;
+	return (err);
 }
 
 void
@@ -342,5 +342,6 @@ iser_dma_map_task_data(struct icl_iser_pdu *iser_pdu,
 		iser_err("dma_map_sg failed");
 		return (-EINVAL);
 	}
+
 	return (0);
 }
