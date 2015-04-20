@@ -45,12 +45,12 @@ iser_prepare_read_cmd(struct icl_iser_pdu *iser_pdu)
 				     ISER_DIR_IN,
 				     DMA_FROM_DEVICE);
 	if (err)
-		return err;
+		return (err);
 
 	err = iser_reg_rdma_mem(iser_pdu, ISER_DIR_IN);
 	if (err) {
 		iser_err("Failed to set up Data-IN RDMA");
-		return err;
+		return (err);
 	}
 
 	mem_reg = &iser_pdu->rdma_reg[ISER_DIR_IN];
@@ -59,7 +59,7 @@ iser_prepare_read_cmd(struct icl_iser_pdu *iser_pdu)
 	hdr->read_stag = cpu_to_be32(mem_reg->rkey);
 	hdr->read_va   = cpu_to_be64(mem_reg->sge.addr);
 
-	return 0;
+	return (0);
 }
 
 /* Register user buffer memory and initialize passive rdma
@@ -80,12 +80,12 @@ iser_prepare_write_cmd(struct icl_iser_pdu *iser_pdu)
 				     ISER_DIR_OUT,
 				     DMA_TO_DEVICE);
 	if (err)
-		return err;
+		return (err);
 
 	err = iser_reg_rdma_mem(iser_pdu, ISER_DIR_OUT);
 	if (err) {
 		iser_err("Failed to set up Data-out RDMA");
-		return err;
+		return (err);
 	}
 
 	mem_reg = &iser_pdu->rdma_reg[ISER_DIR_OUT];
@@ -94,7 +94,7 @@ iser_prepare_write_cmd(struct icl_iser_pdu *iser_pdu)
 	hdr->write_stag = cpu_to_be32(mem_reg->rkey);
 	hdr->write_va   = cpu_to_be64(mem_reg->sge.addr);
 
-	return 0;
+	return (0);
 }
 
 /* creates a new tx descriptor and adds header regd buffer */
@@ -185,14 +185,14 @@ iser_alloc_login_buf(struct iser_conn *iser_conn)
 		goto free_login_buf;
 	}
 
-	return 0;
+	return (0);
 
 free_login_buf:
 	iser_free_login_buf(iser_conn);
 
 out_err:
 	iser_dbg("unable to alloc or map login buf");
-	return -ENOMEM;
+	return (-ENOMEM);
 }
 
 int iser_alloc_rx_descriptors(struct iser_conn *iser_conn, int cmds_max)
@@ -235,7 +235,8 @@ int iser_alloc_rx_descriptors(struct iser_conn *iser_conn, int cmds_max)
 	}
 
 	iser_conn->rx_desc_head = 0;
-	return 0;
+
+	return (0);
 
 rx_desc_dma_map_failed:
 	rx_desc = iser_conn->rx_descs;
@@ -248,7 +249,8 @@ rx_desc_alloc_fail:
 	iser_free_fastreg_pool(ib_conn);
 create_rdma_reg_res_failed:
 	iser_err("failed allocating rx descriptors / data buffers");
-	return -ENOMEM;
+
+	return (-ENOMEM);
 }
 
 void
@@ -340,14 +342,14 @@ iser_send_command(struct iser_conn *iser_conn,
 	err = iser_post_send(&iser_conn->ib_conn, tx_desc,
 			     iser_signal_comp(sig_count));
 	if (!err)
-		return 0;
+		return (0);
 
 send_command_error:
 	iser_err("iser_conn %p itt %u len %u err %d", iser_conn,
 			hdr->bhssc_initiator_task_tag,
 			hdr->bhssc_expected_data_transfer_length,
 			err);
-	return err;
+	return (err);
 }
 
 int
