@@ -635,7 +635,7 @@ iser_connect_error(struct rdma_cm_id *cma_id)
 {
 	struct iser_conn *iser_conn;
 
-	iser_conn = (struct iser_conn *)cma_id->context;
+	iser_conn = cma_id->context;
 
 	iser_err("conn %p\n", iser_conn);
 
@@ -653,7 +653,7 @@ iser_addr_handler(struct rdma_cm_id *cma_id)
 	struct ib_conn   *ib_conn;
 	int    ret;
 
-	iser_conn = (struct iser_conn *)cma_id->context;
+	iser_conn = cma_id->context;
 	sx_slock(&iser_conn->state_mutex);
 	if (iser_conn->state != ISER_CONN_PENDING) {
 		/* bailout */
@@ -685,7 +685,7 @@ iser_route_handler(struct rdma_cm_id *cma_id)
 	struct rdma_conn_param conn_param;
 	int    ret;
 	struct iser_cm_hdr req_hdr;
-	struct iser_conn *iser_conn = (struct iser_conn *)cma_id->context;
+	struct iser_conn *iser_conn = cma_id->context;
 	struct ib_conn *ib_conn = &iser_conn->ib_conn;
 	struct iser_device *device = ib_conn->device;
 
@@ -736,7 +736,7 @@ iser_connected_handler(struct rdma_cm_id *cma_id)
 	struct ib_qp_attr attr;
 	struct ib_qp_init_attr init_attr;
 
-	iser_conn = (struct iser_conn *)cma_id->context;
+	iser_conn = cma_id->context;
 
 	(void)ib_query_qp(cma_id->qp, &attr, ~0, &init_attr);
 
@@ -752,7 +752,7 @@ iser_connected_handler(struct rdma_cm_id *cma_id)
 static void
 iser_cleanup_handler(struct rdma_cm_id *cma_id, bool destroy)
 {
-	struct iser_conn *iser_conn = (struct iser_conn *)cma_id->context;
+	struct iser_conn *iser_conn = cma_id->context;
 
 	if (iser_conn)
 		iser_conn->icl_conn.ic_error(&iser_conn->icl_conn);
@@ -764,7 +764,7 @@ iser_cma_handler(struct rdma_cm_id *cma_id, struct rdma_cm_event *event)
 	struct iser_conn *iser_conn;
 	int ret = 0;
 
-	iser_conn = (struct iser_conn *)cma_id->context;
+	iser_conn = cma_id->context;
 	iser_info("event %d status %d conn %p id %p",
 		  event->event, event->status, cma_id->context, cma_id);
 
