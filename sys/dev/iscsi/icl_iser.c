@@ -139,7 +139,7 @@ int
 iser_conn_pdu_append_data(struct icl_conn *ic, struct icl_pdu *request,
     const void *addr, size_t len, int flags)
 {
-	struct iser_conn *iser_conn = container_of(ic, struct iser_conn, icl_conn);
+	struct iser_conn *iser_conn = icl_to_iser_conn(ic);
 
 	if (request->ip_bhs->bhs_opcode & ISCSI_BHS_OPCODE_LOGIN_REQUEST) {
 		printf("%s copy to login buff\n", __func__);
@@ -167,7 +167,7 @@ iser_new_pdu(struct icl_conn *ic, int flags)
 {
 	struct icl_iser_pdu *iser_pdu;
 	struct icl_pdu *ip;
-	struct iser_conn *iser_conn = container_of(ic, struct iser_conn, icl_conn);
+	struct iser_conn *iser_conn = icl_to_iser_conn(ic);
 
 	iser_pdu = uma_zalloc(icl_pdu_zone, flags | M_ZERO);
 	if (iser_pdu == NULL) {
@@ -191,7 +191,7 @@ iser_conn_new_pdu(struct icl_conn *ic, int flags)
 void
 iser_pdu_free(struct icl_conn *ic, struct icl_pdu *ip)
 {
-	struct icl_iser_pdu *iser_pdu = container_of(ip, struct icl_iser_pdu, icl_pdu);
+	struct icl_iser_pdu *iser_pdu = icl_to_iser_pdu(ip);
 
 	uma_zfree(icl_pdu_zone, iser_pdu);
 }
@@ -233,8 +233,8 @@ is_control_opcode(uint8_t opcode)
 void
 iser_conn_pdu_queue(struct icl_conn *ic, struct icl_pdu *ip)
 {
-	struct iser_conn *iser_conn = container_of(ic, struct iser_conn, icl_conn);
-	struct icl_iser_pdu *iser_pdu = container_of(ip, struct icl_iser_pdu, icl_pdu);
+	struct iser_conn *iser_conn = icl_to_iser_conn(ic);
+	struct icl_iser_pdu *iser_pdu = icl_to_iser_pdu(ip);
 
 	iser_initialize_headers(iser_pdu, iser_conn);
 
@@ -277,7 +277,7 @@ iser_new_conn(const char *name, struct mtx *lock)
 void
 iser_conn_free(struct icl_conn *ic)
 {
-	struct iser_conn *iser_conn = container_of(ic, struct iser_conn, icl_conn);
+	struct iser_conn *iser_conn = icl_to_iser_conn(ic);
 
 	printf("%s\n", __func__);
 
@@ -293,7 +293,7 @@ iser_conn_free(struct icl_conn *ic)
 int
 iser_conn_handoff(struct icl_conn *ic, int cmds_max)
 {
-	struct iser_conn *iser_conn = container_of(ic, struct iser_conn, icl_conn);
+	struct iser_conn *iser_conn = icl_to_iser_conn(ic);
 
 	printf("%s\n", __func__);
 
@@ -316,7 +316,7 @@ out:
 void
 iser_conn_close(struct icl_conn *ic)
 {
-	struct iser_conn *iser_conn = container_of(ic, struct iser_conn, icl_conn);
+	struct iser_conn *iser_conn = icl_to_iser_conn(ic);
 
 	printf("%s: closing conn %p \n", __func__, iser_conn);
 	iser_conn_terminate(iser_conn);
@@ -327,7 +327,7 @@ iser_conn_close(struct icl_conn *ic)
 bool
 iser_conn_connected(struct icl_conn *ic)
 {
-	struct iser_conn *iser_conn = container_of(ic, struct iser_conn, icl_conn);
+	struct iser_conn *iser_conn = icl_to_iser_conn(ic);
 	bool connected = false;
 
 	printf("%s\n", __func__);
@@ -343,7 +343,7 @@ int
 iser_conn_task_setup(struct icl_conn *ic, struct ccb_scsiio *csio,
     uint32_t *task_tagp, void **prvp, struct icl_pdu *ip)
 {
-	struct icl_iser_pdu *iser_pdu = container_of(ip, struct icl_iser_pdu, icl_pdu);
+	struct icl_iser_pdu *iser_pdu = icl_to_iser_pdu(ip);
 
 	*prvp = ip;
 	iser_pdu->csio = csio;
@@ -355,7 +355,7 @@ void
 iser_conn_task_done(struct icl_conn *ic, void *prv)
 {
 	struct icl_pdu *ip = (struct icl_pdu *)prv;
-	struct icl_iser_pdu *iser_pdu = container_of(ip, struct icl_iser_pdu, icl_pdu);
+	struct icl_iser_pdu *iser_pdu = icl_to_iser_pdu(ip);
 
 	if (iser_pdu->dir[ISER_DIR_IN]) {
 		iser_unreg_rdma_mem(iser_pdu, ISER_DIR_IN);
