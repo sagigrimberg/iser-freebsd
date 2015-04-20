@@ -95,6 +95,11 @@
 #define ISER_ZBVA_NOT_SUPPORTED                0x80
 #define ISER_SEND_W_INV_NOT_SUPPORTED	0x40
 
+#define icl_to_iser_conn(ic) \
+	container_of(ic, struct iser_conn, icl_conn)
+#define icl_to_iser_pdu(ip) \
+	container_of(ip, struct icl_iser_pdu, icl_pdu)
+
 /**
  * struct iser_hdr - iSER header
  *
