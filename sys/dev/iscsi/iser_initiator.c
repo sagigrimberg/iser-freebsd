@@ -35,10 +35,10 @@ static MALLOC_DEFINE(M_ISER_INITIATOR, "iser_initiator", "iser initiator backend
 static int
 iser_prepare_read_cmd(struct icl_iser_pdu *iser_pdu)
 {
-	struct iser_mem_reg *mem_reg;
-	int err;
 	struct iser_hdr *hdr = &iser_pdu->desc.iser_header;
 	struct iser_data_buf *buf_in = &iser_pdu->data[ISER_DIR_IN];
+	struct iser_mem_reg *mem_reg;
+	int err;
 
 	err = iser_dma_map_task_data(iser_pdu,
 				     buf_in,
@@ -70,15 +70,15 @@ iser_prepare_read_cmd(struct icl_iser_pdu *iser_pdu)
 static int
 iser_prepare_write_cmd(struct icl_iser_pdu *iser_pdu)
 {
-	struct iser_mem_reg *mem_reg;
-	int err;
 	struct iser_hdr *hdr = &iser_pdu->desc.iser_header;
 	struct iser_data_buf *buf_out = &iser_pdu->data[ISER_DIR_OUT];
+	struct iser_mem_reg *mem_reg;
+	int err;
 
 	err = iser_dma_map_task_data(iser_pdu,
-			       buf_out,
-				   ISER_DIR_OUT,
-				   DMA_TO_DEVICE);
+				     buf_out,
+				     ISER_DIR_OUT,
+				     DMA_TO_DEVICE);
 	if (err)
 		return err;
 
@@ -148,19 +148,19 @@ int
 iser_alloc_login_buf(struct iser_conn *iser_conn)
 {
 	struct iser_device *device = iser_conn->ib_conn.device;
-	int			req_err, resp_err;
+	int req_err, resp_err;
 
 	BUG_ON(device == NULL);
 
 	iser_conn->login_buf = malloc(ISCSI_DEF_MAX_RECV_SEG_LEN + ISER_RX_LOGIN_SIZE,
-			M_ISER_INITIATOR, M_WAITOK | M_ZERO);
+				      M_ISER_INITIATOR, M_WAITOK | M_ZERO);
 
 	if (!iser_conn->login_buf)
 		goto out_err;
 
 	iser_conn->login_req_buf  = iser_conn->login_buf;
 	iser_conn->login_resp_buf = iser_conn->login_buf +
-						ISCSI_DEF_MAX_RECV_SEG_LEN;
+				    ISCSI_DEF_MAX_RECV_SEG_LEN;
 
 	iser_conn->login_req_dma = ib_dma_map_single(device->ib_device,
 						     iser_conn->login_req_buf,
@@ -184,6 +184,7 @@ iser_alloc_login_buf(struct iser_conn *iser_conn)
 			iser_conn->login_resp_dma = 0;
 		goto free_login_buf;
 	}
+
 	return 0;
 
 free_login_buf:
@@ -264,7 +265,9 @@ iser_free_rx_descriptors(struct iser_conn *iser_conn)
 	for (i = 0; i < iser_conn->qp_max_recv_dtos; i++, rx_desc++)
 		ib_dma_unmap_single(device->ib_device, rx_desc->dma_addr,
 				    ISER_RX_PAYLOAD_SIZE, DMA_FROM_DEVICE);
+
 	free(iser_conn->rx_descs, M_ISER_INITIATOR);
+
 	/* make sure we never redo any unmapping */
 	iser_conn->rx_descs = NULL;
 }
@@ -335,7 +338,7 @@ iser_send_command(struct iser_conn *iser_conn,
 	}
 
 	err = iser_post_send(&iser_conn->ib_conn, tx_desc,
-				 iser_signal_comp(sig_count));
+			     iser_signal_comp(sig_count));
 	if (!err)
 		return 0;
 
