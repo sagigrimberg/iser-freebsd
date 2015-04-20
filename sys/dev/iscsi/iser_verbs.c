@@ -1,9 +1,5 @@
-/*-
- * Copyright (c) 2012 The FreeBSD Foundation
- * All rights reserved.
- *
- * This software was developed by Edward Tomasz Napierala under sponsorship
- * from the FreeBSD Foundation.
+/*
+ * Copyright (c) 2015, Mellanox Technologies, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,17 +21,11 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- */
-
-/*
- * iSER verbs.
  */
 
 #include "icl_iser.h"
 
 static MALLOC_DEFINE(M_ISER_VERBS, "iser_verbs", "iser verbs backend");
-
 static int iser_cq_poll_limit = 512;
 
 static void
@@ -378,18 +368,16 @@ iser_free_fastreg_pool(struct ib_conn *ib_conn)
 static int
 iser_create_ib_conn_res(struct ib_conn *ib_conn)
 {
-	struct iser_conn *iser_conn = container_of(ib_conn, struct iser_conn, ib_conn);
-	struct iser_device	*device;
+	struct iser_conn *iser_conn;
+	struct iser_device *device;
 	struct ib_device_attr *dev_attr;
-	struct ib_qp_init_attr	init_attr;
-	int			ret = -ENOMEM;
+	struct ib_qp_init_attr init_attr;
 	int index, min_index = 0;
+	int ret = -ENOMEM;
 
-	BUG_ON(ib_conn->device == NULL);
-
+	iser_conn = container_of(ib_conn, struct iser_conn, ib_conn);
 	device = ib_conn->device;
 	dev_attr = &device->dev_attr;
-	memset(&init_attr, 0, sizeof init_attr);
 
 	mtx_lock(&ig.connlist_mutex);
 	/* select the CQ with the minimal number of usages */
@@ -403,6 +391,7 @@ iser_create_ib_conn_res(struct ib_conn *ib_conn)
 	mtx_unlock(&ig.connlist_mutex);
 	iser_info("cq index %d used for ib_conn %p", min_index, ib_conn);
 
+	memset(&init_attr, 0, sizeof init_attr);
 	init_attr.event_handler = iser_qp_event_callback;
 	init_attr.qp_context	= (void *)ib_conn;
 	init_attr.send_cq	= ib_conn->comp->cq;

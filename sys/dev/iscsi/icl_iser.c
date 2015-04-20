@@ -1,9 +1,5 @@
-/*-
- * Copyright (c) 2012 The FreeBSD Foundation
- * All rights reserved.
- *
- * This software was developed by Edward Tomasz Napierala under sponsorship
- * from the FreeBSD Foundation.
+/*
+ * Copyright (c) 2015, Mellanox Technologies, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,11 +21,6 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- */
-
-/*
- * iSCSI Common Layer for RDMA.
  */
 
 #include <sys/cdefs.h>
