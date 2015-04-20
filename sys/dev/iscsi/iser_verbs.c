@@ -799,7 +799,7 @@ int
 iser_conn_connect(struct icl_conn *ic, int domain, int socktype,
 		int protocol, struct sockaddr *from_sa, struct sockaddr *to_sa)
 {
-	struct iser_conn *iser_conn = container_of(ic, struct iser_conn, icl_conn);
+	struct iser_conn *iser_conn = icl_to_iser_conn(ic);
 	struct ib_conn *ib_conn = &iser_conn->ib_conn;
 	int err = 0;
 
