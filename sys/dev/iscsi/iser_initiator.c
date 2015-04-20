@@ -99,8 +99,8 @@ iser_prepare_write_cmd(struct icl_iser_pdu *iser_pdu)
 
 /* creates a new tx descriptor and adds header regd buffer */
 void
-iser_create_send_desc(struct iser_conn	*iser_conn,
-				  struct iser_tx_desc	*tx_desc)
+iser_create_send_desc(struct iser_conn *iser_conn,
+		      struct iser_tx_desc *tx_desc)
 {
 	struct iser_device *device = iser_conn->ib_conn.device;
 
@@ -299,7 +299,7 @@ iser_signal_comp(u8 sig_count)
 
 int
 iser_send_command(struct iser_conn *iser_conn,
-		      struct icl_iser_pdu *iser_pdu)
+		  struct icl_iser_pdu *iser_pdu)
 {
 	struct iser_data_buf *data_buf;
 	struct iser_tx_desc *tx_desc = &iser_pdu->desc;
@@ -349,7 +349,7 @@ send_command_error:
 
 int
 iser_send_control(struct iser_conn *iser_conn,
-		      struct icl_iser_pdu *iser_pdu)
+		  struct icl_iser_pdu *iser_pdu)
 {
 	struct iser_tx_desc *mdesc;
 	struct iser_device *device;
@@ -404,8 +404,8 @@ send_control_error:
  */
 void
 iser_rcv_completion(struct iser_rx_desc *rx_desc,
-			 unsigned long rx_xfer_len,
-			 struct ib_conn *ib_conn)
+		    unsigned long rx_xfer_len,
+		    struct ib_conn *ib_conn)
 {
 	struct iser_conn *iser_conn = container_of(ib_conn, struct iser_conn,
 						   ib_conn);
@@ -465,7 +465,7 @@ iser_rcv_completion(struct iser_rx_desc *rx_desc,
 
 void
 iser_snd_completion(struct iser_tx_desc *tx_desc,
-			struct ib_conn *ib_conn)
+		    struct ib_conn *ib_conn)
 {
 	struct icl_iser_pdu *iser_pdu = container_of(tx_desc, struct icl_iser_pdu, desc);
 	struct iser_conn *iser_conn = iser_pdu->iser_conn;
@@ -473,4 +473,3 @@ iser_snd_completion(struct iser_tx_desc *tx_desc,
 	if (tx_desc && tx_desc->type == ISCSI_TX_CONTROL)
 		iser_pdu_free(&iser_conn->icl_conn, &iser_pdu->icl_pdu);
 }
-

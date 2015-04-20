@@ -64,8 +64,8 @@ iser_reg_desc_put(struct ib_conn *ib_conn,
  */
 static int
 iser_sg_to_page_vec(struct iser_data_buf *data,
-			       struct ib_device *ibdev, u64 *pages,
-			       int *offset, int *data_size)
+		    struct ib_device *ibdev, u64 *pages,
+		    int *offset, int *data_size)
 {
 	struct scatterlist *sg, *sgl = data->sgl;
 	u64 start_addr, end_addr, page, chunk_start = 0;
@@ -154,8 +154,8 @@ iser_data_buf_aligned_len(struct iser_data_buf *data, struct ib_device *ibdev)
 
 void
 iser_dma_unmap_task_data(struct icl_iser_pdu *iser_pdu,
-			      struct iser_data_buf *data,
-			      enum dma_data_direction dir)
+			 struct iser_data_buf *data,
+			 enum dma_data_direction dir)
 {
 	struct ib_device *dev;
 
@@ -207,9 +207,9 @@ iser_inv_rkey(struct ib_send_wr *inv_wr, struct ib_mr *mr)
 
 static int
 iser_fast_reg_mr(struct icl_iser_pdu *iser_pdu,
-			    struct iser_data_buf *mem,
-			    struct iser_reg_resources *rsc,
-			    struct iser_mem_reg *reg)
+		 struct iser_data_buf *mem,
+		 struct iser_reg_resources *rsc,
+		 struct iser_mem_reg *reg)
 {
 	struct ib_conn *ib_conn = &iser_pdu->iser_conn->ib_conn;
 	struct iser_device *device = ib_conn->device;
@@ -314,7 +314,7 @@ err_reg:
 
 void
 iser_unreg_rdma_mem(struct icl_iser_pdu *iser_pdu,
-	       enum iser_data_dir cmd_dir)
+		    enum iser_data_dir cmd_dir)
 {
 	struct iser_mem_reg *reg = &iser_pdu->rdma_reg[cmd_dir];
 
@@ -328,9 +328,9 @@ iser_unreg_rdma_mem(struct icl_iser_pdu *iser_pdu,
 
 int
 iser_dma_map_task_data(struct icl_iser_pdu *iser_pdu,
-			    struct iser_data_buf *data,
-			    enum iser_data_dir iser_dir,
-			    enum dma_data_direction dma_dir)
+		       struct iser_data_buf *data,
+		       enum iser_data_dir iser_dir,
+		       enum dma_data_direction dma_dir)
 {
 	struct ib_device *dev;
 
