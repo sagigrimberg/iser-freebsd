@@ -87,8 +87,11 @@ static void iser_handle_wc(struct ib_wc *wc)
 			iser_err("Unknown wc opcode %d", wc->opcode);
 		}
 	} else {
-		iser_dbg("opcode %d wr id %lx status %d vend_err %x",
-			 wc->opcode, wc->wr_id, wc->status, wc->vendor_err);
+		if (wc->status != IB_WC_WR_FLUSH_ERR)
+			iser_err("wr id %lx status %d vend_err %x",
+				 wc->wr_id, wc->status, wc->vendor_err);
+		else
+			iser_dbg("flush error: wr id %lx\n", wc->wr_id);
 
 		if (wc->wr_id == ISER_BEACON_WRID) {
 			/* all flush errors were consumed */
