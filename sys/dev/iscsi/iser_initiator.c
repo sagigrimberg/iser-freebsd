@@ -50,7 +50,6 @@ iser_prepare_read_cmd(struct icl_iser_pdu *iser_pdu)
 	struct iser_hdr *hdr = &iser_pdu->desc.iser_header;
 	struct iser_data_buf *buf_in = &iser_pdu->data[ISER_DIR_IN];
 
-	//printf("%s: device %p\n", __func__, device);
 	err = iser_dma_map_task_data(iser_pdu,
 				     buf_in,
 				     ISER_DIR_IN,
@@ -70,9 +69,6 @@ iser_prepare_read_cmd(struct icl_iser_pdu *iser_pdu)
 	hdr->read_stag = cpu_to_be32(mem_reg->rkey);
 	hdr->read_va   = cpu_to_be64(mem_reg->sge.addr);
 
-	/*printf("%s: READ tags RKEY:%#.4X VA:%#llX\n", __func__,
-		 mem_reg->rkey, (unsigned long long)mem_reg->sge.addr);*/
-
 	return 0;
 }
 
@@ -90,7 +86,6 @@ iser_prepare_write_cmd(struct icl_iser_pdu *iser_pdu)
 	struct iser_hdr *hdr = &iser_pdu->desc.iser_header;
 	struct iser_data_buf *buf_out = &iser_pdu->data[ISER_DIR_OUT];
 
-	//printf("%s: device %p\n", __func__, device);
 	err = iser_dma_map_task_data(iser_pdu,
 			       buf_out,
 				   ISER_DIR_OUT,
@@ -110,9 +105,6 @@ iser_prepare_write_cmd(struct icl_iser_pdu *iser_pdu)
 	hdr->write_stag = cpu_to_be32(mem_reg->rkey);
 	hdr->write_va   = cpu_to_be64(mem_reg->sge.addr);
 
-	/*printf("%s: WRITE tags RKEY:%#.4X VA:%#llX\n", __func__,
-		 mem_reg->rkey, (unsigned long long)mem_reg->sge.addr);*/
-
 	return 0;
 }
 
@@ -123,7 +115,6 @@ iser_create_send_desc(struct iser_conn	*iser_conn,
 {
 	struct iser_device *device = iser_conn->ib_conn.device;
 
-	//printf("%s: conn %p \n", __func__, iser_conn);
 	ib_dma_sync_single_for_cpu(device->ib_device,
 		tx_desc->dma_addr, ISER_HEADERS_LEN, DMA_TO_DEVICE);
 
@@ -143,7 +134,6 @@ iser_free_login_buf(struct iser_conn *iser_conn)
 {
 	struct iser_device *device = iser_conn->ib_conn.device;
 
-	//printf("%s\n", __func__);
 	if (!iser_conn->login_buf)
 		return;
 
@@ -171,7 +161,6 @@ iser_alloc_login_buf(struct iser_conn *iser_conn)
 	struct iser_device *device = iser_conn->ib_conn.device;
 	int			req_err, resp_err;
 
-	//printf("%s\n", __func__);
 	BUG_ON(device == NULL);
 
 	iser_conn->login_buf = malloc(ISCSI_DEF_MAX_RECV_SEG_LEN + ISER_RX_LOGIN_SIZE,
@@ -225,7 +214,6 @@ int iser_alloc_rx_descriptors(struct iser_conn *iser_conn, int cmds_max)
 	struct ib_conn *ib_conn = &iser_conn->ib_conn;
 	struct iser_device *device = ib_conn->device;
 
-	//printf("%s: cmds_max %d\n", __func__, cmds_max);
 	iser_conn->qp_max_recv_dtos = cmds_max;
 	iser_conn->min_posted_rx = iser_conn->qp_max_recv_dtos >> 2;
 
@@ -281,7 +269,6 @@ iser_free_rx_descriptors(struct iser_conn *iser_conn)
 	struct ib_conn *ib_conn = &iser_conn->ib_conn;
 	struct iser_device *device = ib_conn->device;
 
-	//printf("%s\n", __func__);
 	if (device->iser_free_rdma_reg_res)
 		device->iser_free_rdma_reg_res(ib_conn);
 
@@ -302,18 +289,14 @@ iser_csio_to_sg(struct ccb_scsiio *csio, struct iser_data_buf *data_buf)
 	int i;
 	unsigned int total_left, buflen, offset;
 
-	//printf("%s\n", __func__);
 	buf = csio->data_ptr;
 	total_left = data_buf->data_len;
 	data_buf->size = DIV_ROUND_UP(csio->dxfer_len, PAGE_SIZE);
-	//printf("%s: data size = %d\n", __func__, data_buf->size);
 	sg_init_table(data_buf->sgl, data_buf->size);
 	for (i = 0; i < data_buf->size; i++)  {
 		sg = &data_buf->sgl[i];
 		offset = ((uintptr_t)buf) & ~PAGE_MASK;
 		buflen = min(PAGE_SIZE - offset, total_left);
-		/*printf("%s: [%d] buf %p offset %u bufflen %u\n", __func__,
-				i, buf, offset, buflen);*/
 		sg_set_buf(sg, buf, buflen);
 		buf = (void *)(((u64)buf) + (u64)buflen);
 		total_left -= buflen;
@@ -337,8 +320,6 @@ iser_send_command(struct iser_conn *iser_conn,
 	int err = 0;
 	u8 sig_count = ++iser_conn->ib_conn.sig_count;
 
-	/*printf("%s: conn %p opcode %d sgl_count %hu data_len %u\n", __func__, iser_conn,
-			hdr->bhssc_opcode, csio->sglist_cnt, csio->dxfer_len);*/
 	/* build the tx desc regd header and add it to the tx desc dto */
 	tx_desc->type = ISCSI_TX_SCSI_COMMAND;
 	iser_create_send_desc(iser_conn, tx_desc);
@@ -388,8 +369,6 @@ iser_send_control(struct iser_conn *iser_conn,
 	bool login = false;
 	int err;
 
-	//printf("%s: conn %p\n", __func__, iser_conn);
-
 	mdesc = &iser_pdu->desc;
 
 	/* build the tx desc regd header and add it to the tx desc dto */
@@ -414,9 +393,6 @@ iser_send_control(struct iser_conn *iser_conn,
 		mdesc->num_sge = 2;
 		login = true;
 	}
-
-	/*printf("%s: iscsi_op %x dsl %lx, posting login rx buffer\n", __func__,
-			mdesc->iscsi_header.bhs_opcode, datalen);*/
 
 	if (login) {
 		err = iser_post_recvl(iser_conn);
@@ -452,14 +428,11 @@ iser_rcv_completion(struct iser_rx_desc *rx_desc,
 	int rx_buflen;
 	int outstanding, count, err;
 
-	//printf("%s\n", __func__);
 	/* differentiate between login to all other PDUs */
 	if ((char *)rx_desc == iser_conn->login_resp_buf) {
-		//printf("%s 1\n", __func__);
 		rx_dma = iser_conn->login_resp_dma;
 		rx_buflen = ISER_RX_LOGIN_SIZE;
 	} else {
-		//printf("%s 2\n", __func__);
 		rx_dma = rx_desc->dma_addr;
 		rx_buflen = ISER_RX_PAYLOAD_SIZE;
 	}
@@ -468,9 +441,6 @@ iser_rcv_completion(struct iser_rx_desc *rx_desc,
 				   rx_buflen, DMA_FROM_DEVICE);
 
 	hdr = &rx_desc->iscsi_header;
-
-	/*printf("op 0x%x dlen %d\n", hdr->bhs_opcode,
-			(int)(rx_xfer_len - ISER_HEADERS_LEN));*/
 
 	response = iser_new_pdu(ic, M_NOWAIT);
 	response->ip_bhs = hdr;
@@ -512,7 +482,6 @@ iser_snd_completion(struct iser_tx_desc *tx_desc,
 	struct icl_iser_pdu *iser_pdu = container_of(tx_desc, struct icl_iser_pdu, desc);
 	struct iser_conn *iser_conn = iser_pdu->iser_conn;
 
-	//printf("%s\n", __func__);
 	if (tx_desc && tx_desc->type == ISCSI_TX_CONTROL)
 		iser_pdu_free(&iser_conn->icl_conn, &iser_pdu->icl_pdu);
 }

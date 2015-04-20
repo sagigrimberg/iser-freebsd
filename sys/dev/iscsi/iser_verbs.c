@@ -72,17 +72,14 @@ static void iser_handle_wc(struct ib_wc *wc)
 	struct iser_tx_desc *tx_desc;
 	struct iser_rx_desc *rx_desc;
 
-	//printf("%s\n", __func__);
 	ib_conn = wc->qp->qp_context;
 	if (likely(wc->status == IB_WC_SUCCESS)) {
 		if (wc->opcode == IB_WC_RECV) {
-			//printf("%s IB_WC_RECV\n", __func__);
 			rx_desc = (struct iser_rx_desc *)(uintptr_t)wc->wr_id;
 			iser_rcv_completion(rx_desc, wc->byte_len,
 					    ib_conn);
 		} else
 		if (wc->opcode == IB_WC_SEND) {
-			//printf("%s IB_WC_SEND\n", __func__);
 			tx_desc = (struct iser_tx_desc *)(uintptr_t)wc->wr_id;
 			iser_snd_completion(tx_desc, ib_conn);
 		} else {
@@ -107,7 +104,6 @@ iser_cq_tasklet_fn(void *data, int pending)
 	struct ib_wc *const wcs = comp->wcs;
 	int i, n, completed = 0;
 
-	//printf("%s\n", __func__);
 	while ((n = ib_poll_cq(cq, ARRAY_SIZE(comp->wcs), wcs)) > 0) {
 		for (i = 0; i < n; i++)
 			iser_handle_wc(&wcs[i]);
@@ -122,8 +118,6 @@ iser_cq_tasklet_fn(void *data, int pending)
 	 * would not cause interrupts to be missed.
 	 */
 	ib_req_notify_cq(cq, IB_CQ_NEXT_COMP);
-
-	//printf("got %d completions\n", completed);
 }
 
 static void
@@ -131,7 +125,6 @@ iser_cq_callback(struct ib_cq *cq, void *cq_context)
 {
 	struct iser_comp *comp = cq_context;
 
-	//printf("%s\n", __func__);
 	taskqueue_enqueue_fast(comp->tq, &comp->task);
 }
 
@@ -266,8 +259,6 @@ iser_alloc_reg_res(struct ib_device *ib_device,
 {
 	int ret;
 
-	//printf("%s\n", __func__);
-
 	res->frpl = ib_alloc_fast_reg_page_list(ib_device,
 						ISCSI_ISER_SG_TABLESIZE + 1);
 	if (IS_ERR(res->frpl)) {
@@ -296,7 +287,6 @@ fast_reg_mr_failure:
 static void
 iser_free_reg_res(struct iser_reg_resources *rsc)
 {
-	//printf("%s\n", __func__);
 	ib_dereg_mr(rsc->mr);
 	ib_free_fast_reg_page_list(rsc->frpl);
 }
@@ -307,7 +297,6 @@ iser_create_fastreg_desc(struct ib_device *ib_device, struct ib_pd *pd,
 {
 	int ret;
 
-	//printf("%s\n", __func__);
 	ret = iser_alloc_reg_res(ib_device, pd, &desc->rsc);
 	if (ret) {
 		printf("%s: failed to allocate reg_resources\n", __func__);
@@ -340,7 +329,6 @@ iser_create_fastreg_pool(struct ib_conn *ib_conn, unsigned cmds_max)
 	struct fast_reg_descriptor *desc;
 	int i, ret;
 
-	//printf("%s\n", __func__);
 	INIT_LIST_HEAD(&ib_conn->fastreg.pool);
 	ib_conn->fastreg.pool_size = 0;
 	for (i = 0; i < cmds_max; i++) {
@@ -380,7 +368,6 @@ iser_free_fastreg_pool(struct ib_conn *ib_conn)
 	struct fast_reg_descriptor *desc, *tmp;
 	int i = 0;
 
-	//printf("%s\n", __func__);
 	if (list_empty(&ib_conn->fastreg.pool))
 		return;
 
@@ -413,7 +400,6 @@ iser_create_ib_conn_res(struct ib_conn *ib_conn)
 	int			ret = -ENOMEM;
 	int index, min_index = 0;
 
-	//printf("%s\n", __func__);
 	BUG_ON(ib_conn->device == NULL);
 
 	device = ib_conn->device;
@@ -886,7 +872,6 @@ iser_post_recvl(struct iser_conn *iser_conn)
 	struct ib_sge	  sge;
 	int ib_ret;
 
-	//printf("%s\n", __func__);
 	sge.addr   = iser_conn->login_resp_dma;
 	sge.length = ISER_RX_LOGIN_SIZE;
 	sge.lkey   = ib_conn->device->mr->lkey;
@@ -914,7 +899,6 @@ iser_post_recvm(struct iser_conn *iser_conn, int count)
 	unsigned int my_rx_head = iser_conn->rx_desc_head;
 	struct iser_rx_desc *rx_desc;
 
-	//printf("%s: posting %d buffers\n", __func__, count);
 	for (rx_wr = ib_conn->rx_wr, i = 0; i < count; i++, rx_wr++) {
 		rx_desc		= &iser_conn->rx_descs[my_rx_head];
 		rx_wr->wr_id	= (uintptr_t)rx_desc;
@@ -947,8 +931,6 @@ int iser_post_send(struct ib_conn *ib_conn, struct iser_tx_desc *tx_desc,
 {
 	int		  ib_ret;
 	struct ib_send_wr send_wr, *send_wr_failed;
-
-	//printf("%s\n", __func__);
 
 	ib_dma_sync_single_for_device(ib_conn->device->ib_device,
 				      tx_desc->dma_addr, ISER_HEADERS_LEN,
