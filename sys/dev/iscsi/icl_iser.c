@@ -102,7 +102,7 @@ iser_initialize_headers(struct icl_iser_pdu *pdu, struct iser_conn *iser_conn)
 
 out:
 
-	return ret;
+	return (ret);
 }
 
 int
@@ -197,7 +197,8 @@ is_control_opcode(uint8_t opcode)
 		default:
 			iser_err("unknown opcode %d", opcode);
 	}
-	return is_control;
+
+	return (is_control);
 }
 
 void
