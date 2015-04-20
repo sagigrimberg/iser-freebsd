@@ -47,6 +47,31 @@
 #include <cam/cam.h>
 #include <cam/cam_ccb.h>
 
+#define	iser_dbg(X, ...)						\
+	do {								\
+		if (unlikely(iser_debug > 2))				\
+			printf("DEBUG: %s: " X "\n",			\
+				__func__, ## __VA_ARGS__);		\
+	} while (0)
+
+#define	iser_info(X, ...)						\
+	do {								\
+		if (unlikely(iser_debug > 1))				\
+			printf("INFO: %s: " X "\n",			\
+				__func__, ## __VA_ARGS__);		\
+	} while (0)
+
+#define	iser_warn(X, ...)						\
+	do {								\
+		if (unlikely(iser_debug > 0)) {				\
+			printf("WARNING: %s: " X "\n",			\
+			    	__func__, ## __VA_ARGS__);		\
+		}							\
+	} while (0)
+
+#define iser_err(X, ...) \
+	printf("ERROR: %s: " X "\n", __func__, ## __VA_ARGS__)
+
 #define ISER_VER			0x10
 #define ISER_WSV			0x08
 #define ISER_RSV			0x04
@@ -396,6 +421,7 @@ struct iser_global {
 };
 
 extern struct iser_global ig;
+extern int iser_debug;
 
 void
 iser_create_send_desc(struct iser_conn *, struct iser_tx_desc *);
