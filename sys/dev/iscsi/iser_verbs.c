@@ -228,7 +228,6 @@ static void
 iser_free_device_ib_res(struct iser_device *device)
 {
 	int i;
-	BUG_ON(device->mr == NULL);
 
 	for (i = 0; i < device->comps_used; i++) {
 		struct iser_comp *comp = &device->comps[i];
