@@ -44,7 +44,6 @@ static MALLOC_DEFINE(M_ISER_INITIATOR, "iser_initiator", "iser initiator backend
 static int
 iser_prepare_read_cmd(struct icl_iser_pdu *iser_pdu)
 {
-	struct iser_device  *device = iser_pdu->iser_conn->ib_conn.device;
 	struct iser_mem_reg *mem_reg;
 	int err;
 	struct iser_hdr *hdr = &iser_pdu->desc.iser_header;
@@ -57,7 +56,7 @@ iser_prepare_read_cmd(struct icl_iser_pdu *iser_pdu)
 	if (err)
 		return err;
 
-	err = device->iser_reg_rdma_mem(iser_pdu, ISER_DIR_IN);
+	err = iser_reg_rdma_mem(iser_pdu, ISER_DIR_IN);
 	if (err) {
 		printf("%s: Failed to set up Data-IN RDMA\n", __func__);
 		return err;
@@ -80,7 +79,6 @@ iser_prepare_read_cmd(struct icl_iser_pdu *iser_pdu)
 static int
 iser_prepare_write_cmd(struct icl_iser_pdu *iser_pdu)
 {
-	struct iser_device  *device = iser_pdu->iser_conn->ib_conn.device;
 	struct iser_mem_reg *mem_reg;
 	int err;
 	struct iser_hdr *hdr = &iser_pdu->desc.iser_header;
@@ -93,7 +91,7 @@ iser_prepare_write_cmd(struct icl_iser_pdu *iser_pdu)
 	if (err)
 		return err;
 
-	err = device->iser_reg_rdma_mem(iser_pdu, ISER_DIR_OUT);
+	err = iser_reg_rdma_mem(iser_pdu, ISER_DIR_OUT);
 	if (err) {
 		printf("%s: Failed to set up Data-out RDMA\n", __func__);
 		return err;
@@ -217,7 +215,7 @@ int iser_alloc_rx_descriptors(struct iser_conn *iser_conn, int cmds_max)
 	iser_conn->qp_max_recv_dtos = cmds_max;
 	iser_conn->min_posted_rx = iser_conn->qp_max_recv_dtos >> 2;
 
-	if (device->iser_alloc_rdma_reg_res(ib_conn, cmds_max))
+	if (iser_create_fastreg_pool(ib_conn, cmds_max))
 		goto create_rdma_reg_res_failed;
 
 
@@ -255,7 +253,7 @@ rx_desc_dma_map_failed:
 	free(iser_conn->rx_descs, M_ISER_INITIATOR);
 	iser_conn->rx_descs = NULL;
 rx_desc_alloc_fail:
-	device->iser_free_rdma_reg_res(ib_conn);
+	iser_free_fastreg_pool(ib_conn);
 create_rdma_reg_res_failed:
 	printf("%s: failed allocating rx descriptors / data buffers\n", __func__);
 	return -ENOMEM;
@@ -269,8 +267,7 @@ iser_free_rx_descriptors(struct iser_conn *iser_conn)
 	struct ib_conn *ib_conn = &iser_conn->ib_conn;
 	struct iser_device *device = ib_conn->device;
 
-	if (device->iser_free_rdma_reg_res)
-		device->iser_free_rdma_reg_res(ib_conn);
+	iser_free_fastreg_pool(ib_conn);
 
 	rx_desc = iser_conn->rx_descs;
 	for (i = 0; i < iser_conn->qp_max_recv_dtos; i++, rx_desc++)
