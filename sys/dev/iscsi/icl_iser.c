@@ -23,35 +23,9 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
-#include <sys/param.h>
-#include <sys/capsicum.h>
-#include <sys/condvar.h>
-#include <sys/conf.h>
-#include <sys/file.h>
-#include <sys/kernel.h>
-#include <sys/kthread.h>
-#include <sys/lock.h>
-#include <sys/mbuf.h>
-#include <sys/mutex.h>
-#include <sys/module.h>
-#include <sys/protosw.h>
-#include <sys/socket.h>
-#include <sys/socketvar.h>
-#include <sys/sysctl.h>
-#include <sys/systm.h>
-#include <sys/sx.h>
-#include <sys/uio.h>
-#include <vm/uma.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h>
-
-#include <dev/iscsi/icl.h>
-#include <dev/iscsi/iscsi_proto.h>
-#include <icl_conn_if.h>
 #include "icl_iser.h"
+
+__FBSDID("$FreeBSD$");
 
 SYSCTL_NODE(_kern, OID_AUTO, iser, CTLFLAG_RD, 0, "iSER module");
 int iser_debug = 0;
