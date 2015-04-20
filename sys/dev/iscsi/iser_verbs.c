@@ -139,13 +139,13 @@ iser_create_device_ib_res(struct iser_device *device)
 	ret = ib_query_device(device->ib_device, dev_attr);
 	if (ret) {
 		iser_err("Query device failed for %s", device->ib_device->name);
-		return ret;
+		return (ret);
 	}
 
 	if (!(dev_attr->device_cap_flags & IB_DEVICE_MEM_MGT_EXTENSIONS)) {
 		iser_err("device %s doesn't support Fastreg, "
 			 "can't register memory", device->ib_device->name);
-		return -1;
+		return (-1);
 	}
 	
 	device->comps_used = min(ISER_MAX_CQ, device->ib_device->num_comp_vectors);
@@ -194,7 +194,7 @@ iser_create_device_ib_res(struct iser_device *device)
 	if (ib_register_event_handler(&device->event_handler))
 		goto handler_err;
 
-	return 0;
+	return (0);
 
 handler_err:
 	ib_dereg_mr(device->mr);
@@ -210,7 +210,7 @@ cq_err:
 	ib_dealloc_pd(device->pd);
 pd_err:
 	iser_err("failed to allocate an IB resource");
-	return -1;
+	return (-1);
 }
 
 /**
@@ -294,7 +294,7 @@ iser_create_fastreg_desc(struct ib_device *ib_device, struct ib_pd *pd)
 		goto err;
 	}
 
-	return desc;
+	return (desc);
 err:
 	free(desc, M_ISER_VERBS);
 	return ERR_PTR(ret);
@@ -423,7 +423,7 @@ iser_create_ib_conn_res(struct ib_conn *ib_conn)
 		 ib_conn, ib_conn->cma_id,
 		 ib_conn->cma_id->qp);
 
-	return ret;
+	return (ret);
 
 out_err:
 	mtx_lock(&ig.connlist_mutex);
@@ -431,7 +431,7 @@ out_err:
 	mtx_unlock(&ig.connlist_mutex);
 	iser_err("unable to alloc mem or create resource, err %d", ret);
 
-	return ret;
+	return (ret);
 }
 
 /**
@@ -468,7 +468,7 @@ inc_refcnt:
 	device->refcount++;
 out:
 	sx_xunlock(&ig.device_list_mutex);
-	return device;
+	return (device);
 }
 
 /* if there's no demand for this device, release it */
@@ -580,7 +580,7 @@ iser_conn_terminate(struct iser_conn *iser_conn)
 	if (ib_conn->qp == NULL) {
 		/* HOW can this be??? */
 		iser_warn("qp wasn't created");
-		return err;
+		return (err);
 	}
 
 	/*
@@ -598,7 +598,7 @@ iser_conn_terminate(struct iser_conn *iser_conn)
 		err = ib_post_send(ib_conn->qp, &ib_conn->beacon, &bad_wr);
 		if (err) {
 			iser_err("conn %p failed to post beacon", ib_conn);
-			return 1;
+			return (1);
 		}
 
 		iser_dbg("before cv_wait: %p", iser_conn);
@@ -608,7 +608,7 @@ iser_conn_terminate(struct iser_conn *iser_conn)
 		iser_dbg("after cv_wait: %p", iser_conn);
 	}
 
-	return err;
+	return (err);
 }
 
 static void
@@ -776,7 +776,7 @@ iser_cma_handler(struct rdma_cm_id *cma_id, struct rdma_cm_event *event)
 		break;
 	}
 
-	return ret;
+	return (ret);
 }
 
 int
@@ -833,12 +833,12 @@ iser_conn_connect(struct icl_conn *ic, int domain, int socktype,
 	list_add(&iser_conn->conn_list, &ig.connlist);
 	mtx_unlock(&ig.connlist_mutex);
 
-	return 0;
+	return (0);
 
 id_failure:
 	ib_conn->cma_id = NULL;
 addr_failure:
-	return err;
+	return (err);
 }
 
 int
@@ -864,7 +864,8 @@ iser_post_recvl(struct iser_conn *iser_conn)
 		iser_err("ib_post_recv failed ret=%d", ib_ret);
 		ib_conn->post_recv_buf_count--;
 	}
-	return ib_ret;
+
+	return (ib_ret);
 }
 
 int
@@ -895,7 +896,8 @@ iser_post_recvm(struct iser_conn *iser_conn, int count)
 		ib_conn->post_recv_buf_count -= count;
 	} else
 		iser_conn->rx_desc_head = my_rx_head;
-	return ib_ret;
+
+	return (ib_ret);
 }
 
 /**
@@ -924,5 +926,5 @@ int iser_post_send(struct ib_conn *ib_conn, struct iser_tx_desc *tx_desc,
 	if (ib_ret)
 		iser_err("ib_post_send failed, ret:%d", ib_ret);
 
-	return ib_ret;
+	return (ib_ret);
 }
