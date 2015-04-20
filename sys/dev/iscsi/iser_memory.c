@@ -235,7 +235,7 @@ iser_fast_reg_mr(struct icl_iser_pdu *iser_pdu,
 				   rsc->frpl->page_list,
 				   &offset, &size);
 	if (plen * SIZE_4K < size) {
-		printf("%s:fast reg page_list too short to hold this SG\n", __func__);
+		iser_err("fast reg page_list too short to hold this SG");
 		return -EINVAL;
 	}
 
@@ -265,7 +265,7 @@ iser_fast_reg_mr(struct icl_iser_pdu *iser_pdu,
 
 	ret = ib_post_send(ib_conn->qp, wr, &bad_wr);
 	if (ret) {
-		printf("%s: fast registration failed, ret:%d\n", __func__, ret);
+		iser_err("fast registration failed, ret:%d", ret);
 		return ret;
 	}
 	rsc->mr_valid = 0;
@@ -298,7 +298,7 @@ iser_reg_rdma_mem(struct icl_iser_pdu *iser_pdu,
 
 	aligned_len = iser_data_buf_aligned_len(mem, ibdev);
 	if (aligned_len != mem->dma_nents) {
-		printf("%s: bounce buffer is not supported\n", __func__);
+		iser_err("bounce buffer is not supported");
 		return 1;
 	}
 
@@ -348,7 +348,7 @@ iser_dma_map_task_data(struct icl_iser_pdu *iser_pdu,
 
 	data->dma_nents = ib_dma_map_sg(dev, data->sgl, data->size, dma_dir);
 	if (data->dma_nents == 0) {
-		printf("%s: dma_map_sg failed!!!\n", __func__);
+		iser_err("dma_map_sg failed");
 		return (-EINVAL);
 	}
 	return (0);
