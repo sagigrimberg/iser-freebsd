@@ -39,7 +39,6 @@ iser_reg_desc_get(struct ib_conn *ib_conn)
 {
 	struct fast_reg_descriptor *desc;
 
-	//printf("%s\n", __func__);
 	mtx_lock(&ib_conn->lock);
 	desc = list_first_entry(&ib_conn->fastreg.pool,
 				struct fast_reg_descriptor, list);
@@ -53,7 +52,6 @@ static void
 iser_reg_desc_put(struct ib_conn *ib_conn,
 		  struct fast_reg_descriptor *desc)
 {
-	//printf("%s\n", __func__);
 	mtx_lock(&ib_conn->lock);
 	list_add(&desc->list, &ib_conn->fastreg.pool);
 	mtx_unlock(&ib_conn->lock);
@@ -84,7 +82,6 @@ iser_sg_to_page_vec(struct iser_data_buf *data,
 	unsigned int dma_len;
 	int i, new_chunk, cur_page, last_ent = data->dma_nents - 1;
 
-	//printf("%s\n", __func__);
 	/* compute the offset of first element */
 	*offset = (u64) sgl[0].offset & ~MASK_4K;
 
@@ -116,8 +113,7 @@ iser_sg_to_page_vec(struct iser_data_buf *data,
 	}
 
 	*data_size = total_sz;
-	/*printf("%s: page_vec->data_size:%d cur_page %d\n", __func__,
-		 *data_size, cur_page);*/
+
 	return cur_page;
 }
 
@@ -134,7 +130,6 @@ iser_data_buf_aligned_len(struct iser_data_buf *data, struct ib_device *ibdev)
 	u64 start_addr, end_addr;
 	int i, ret_len, start_check = 0;
 
-	//printf("%s\n", __func__);
 	if (data->dma_nents == 1)
 		return 1;
 
@@ -162,8 +157,7 @@ iser_data_buf_aligned_len(struct iser_data_buf *data, struct ib_device *ibdev)
 			break;
 	}
 	ret_len = (next_sg) ? i : i+1;
-	/*printf("%s: Found %d aligned entries out of %d in sg:0x%p\n", __func__,
-		 ret_len, data->dma_nents, data);*/
+
 	return (ret_len);
 }
 
@@ -174,7 +168,6 @@ iser_dma_unmap_task_data(struct icl_iser_pdu *iser_pdu,
 {
 	struct ib_device *dev;
 
-	//printf("%s\n", __func__);
 	dev = iser_pdu->iser_conn->ib_conn.device->ib_device;
 	ib_dma_unmap_sg(dev, data->sgl, data->size, dir);
 }
@@ -185,16 +178,10 @@ iser_reg_dma(struct iser_device *device, struct iser_data_buf *mem,
 {
 	struct scatterlist *sg = mem->sgl;
 
-	//printf("%s\n", __func__);
-
 	reg->sge.lkey = device->mr->lkey;
 	reg->rkey = device->mr->rkey;
 	reg->sge.length = ib_sg_dma_len(device->ib_device, &sg[0]);
 	reg->sge.addr = ib_sg_dma_address(device->ib_device, &sg[0]);
-
-	/*printf("%s: Single DMA entry: lkey=0x%x, rkey=0x%x, addr=0x%lx,"
-		 " length=0x%x\n", __func__, reg->sge.lkey, reg->rkey,
-		 reg->sge.addr, reg->sge.length);*/
 
 	return (0);
 }
@@ -209,7 +196,7 @@ static inline u32
 iser_ib_inc_rkey(u32 rkey)
 {
 	const u32 mask = 0x000000ff;
-	//printf("%s\n", __func__);
+
 	return (((rkey + 1) & mask) | (rkey & ~mask));
 }
 
@@ -218,7 +205,6 @@ iser_inv_rkey(struct ib_send_wr *inv_wr, struct ib_mr *mr)
 {
 	u32 rkey;
 
-	//printf("%s\n", __func__);
 	memset(inv_wr, 0, sizeof(*inv_wr));
 	inv_wr->opcode = IB_WR_LOCAL_INV;
 	inv_wr->wr_id = ISER_FASTREG_LI_WRID;
@@ -240,7 +226,6 @@ iser_fast_reg_mr(struct icl_iser_pdu *iser_pdu,
 	struct ib_send_wr *bad_wr, *wr = NULL;
 	int ret, offset, size, plen;
 
-	//printf("%s\n", __func__);
 	/* if there a single dma entry, dma mr suffices */
 	if (mem->dma_nents == 1)
 		return iser_reg_dma(device, mem, reg);
@@ -311,7 +296,6 @@ iser_reg_rdma_mem_fastreg(struct icl_iser_pdu *iser_pdu,
 	struct fast_reg_descriptor *desc = NULL;
 	int err, aligned_len;
 
-	//printf("%s\n", __func__);
 	aligned_len = iser_data_buf_aligned_len(mem, ibdev);
 	if (aligned_len != mem->dma_nents) {
 		printf("%s: bounce buffer is not supported\n", __func__);
@@ -343,7 +327,6 @@ iser_unreg_mem_fastreg(struct icl_iser_pdu *iser_pdu,
 {
 	struct iser_mem_reg *reg = &iser_pdu->rdma_reg[cmd_dir];
 
-	//printf("%s\n", __func__);
 	if (!reg->mem_h)
 		return;
 

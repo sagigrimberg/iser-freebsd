@@ -141,7 +141,6 @@ iser_conn_pdu_append_data(struct icl_conn *ic, struct icl_pdu *request,
 {
 	struct iser_conn *iser_conn = container_of(ic, struct iser_conn, icl_conn);
 
-	//printf("%s \n", __func__);
 	if (request->ip_bhs->bhs_opcode & ISCSI_BHS_OPCODE_LOGIN_REQUEST) {
 		printf("%s copy to login buff\n", __func__);
 		memcpy(iser_conn->login_req_buf, addr, len);
@@ -155,8 +154,6 @@ void
 iser_conn_pdu_get_data(struct icl_conn *ic, struct icl_pdu *ip,
     size_t off, void *addr, size_t len)
 {
-	//printf("%s \n", __func__);
-
 	/* copy only in case mbuf isn't NULL - login stage */
 	if (ip->ip_data_mbuf)
 		memcpy(addr, ip->ip_data_mbuf + off, len);
@@ -172,7 +169,6 @@ iser_new_pdu(struct icl_conn *ic, int flags)
 	struct icl_pdu *ip;
 	struct iser_conn *iser_conn = container_of(ic, struct iser_conn, icl_conn);
 
-	//printf("%s \n", __func__);
 	iser_pdu = uma_zalloc(icl_pdu_zone, flags | M_ZERO);
 	if (iser_pdu == NULL) {
 		ICL_WARN("failed to allocate %zd bytes", sizeof(struct icl_iser_pdu));
@@ -197,7 +193,6 @@ iser_pdu_free(struct icl_conn *ic, struct icl_pdu *ip)
 {
 	struct icl_iser_pdu *iser_pdu = container_of(ip, struct icl_iser_pdu, icl_pdu);
 
-	//printf("%s \n", __func__);
 	uma_zfree(icl_pdu_zone, iser_pdu);
 }
 
@@ -241,7 +236,6 @@ iser_conn_pdu_queue(struct icl_conn *ic, struct icl_pdu *ip)
 	struct iser_conn *iser_conn = container_of(ic, struct iser_conn, icl_conn);
 	struct icl_iser_pdu *iser_pdu = container_of(ip, struct icl_iser_pdu, icl_pdu);
 
-	//printf("%s\n", __func__);
 	iser_initialize_headers(iser_pdu, iser_conn);
 
 	if (is_control_opcode(ip->ip_bhs->bhs_opcode))
@@ -350,7 +344,6 @@ iser_conn_task_setup(struct icl_conn *ic, struct ccb_scsiio *csio,
     uint32_t *task_tagp, void **prvp, struct icl_pdu *ip)
 {
 	struct icl_iser_pdu *iser_pdu = container_of(ip, struct icl_iser_pdu, icl_pdu);
-	//printf("%s\n", __func__);
 
 	*prvp = ip;
 	iser_pdu->csio = csio;
@@ -365,7 +358,6 @@ iser_conn_task_done(struct icl_conn *ic, void *prv)
 	struct icl_iser_pdu *iser_pdu = container_of(ip, struct icl_iser_pdu, icl_pdu);
 	struct iser_device *device = iser_pdu->iser_conn->ib_conn.device;
 
-	//printf("%s\n", __func__);
 	if (iser_pdu->dir[ISER_DIR_IN]) {
 		device->iser_unreg_rdma_mem(iser_pdu, ISER_DIR_IN);
 		iser_dma_unmap_task_data(iser_pdu,
