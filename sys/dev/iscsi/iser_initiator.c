@@ -432,6 +432,7 @@ iser_rcv_completion(struct iser_rx_desc *rx_desc,
 
 	response = iser_new_pdu(ic, M_NOWAIT);
 	response->ip_bhs = hdr;
+
 	/* differentiate between login to all other PDUs */
 	if ((char *)rx_desc == iser_conn->login_resp_buf) {
 		response->ip_data_len = ntoh24(hdr->bhs_data_segment_len);
@@ -447,10 +448,8 @@ iser_rcv_completion(struct iser_rx_desc *rx_desc,
 	 * for the posted rx bufs refcount to become zero handles everything   */
 	ib_conn->post_recv_buf_count--;
 
-	if (rx_dma == iser_conn->login_resp_dma) {
-		(ic->ic_receive)(response);
-		return;
-	}
+	if (rx_dma == iser_conn->login_resp_dma)
+		goto receive;
 
 	outstanding = ib_conn->post_recv_buf_count;
 	if (outstanding + iser_conn->min_posted_rx <= iser_conn->qp_max_recv_dtos) {
@@ -460,6 +459,8 @@ iser_rcv_completion(struct iser_rx_desc *rx_desc,
 		if (err)
 			iser_err("posting %d rx bufs err %d", count, err);
 	}
+
+receive:
 	(ic->ic_receive)(response);
 }
 
