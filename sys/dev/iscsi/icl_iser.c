@@ -62,6 +62,11 @@ __FBSDID("$FreeBSD$");
 #include <icl_conn_if.h>
 #include "icl_iser.h"
 
+SYSCTL_NODE(_kern, OID_AUTO, iser, CTLFLAG_RD, 0, "iSER module");
+int iser_debug = 0;
+SYSCTL_INT(_kern_iser, OID_AUTO, debug, CTLFLAG_RWTUN,
+    &iser_debug, 0, "Enable iser debug messages");
+
 static MALLOC_DEFINE(M_ICL_ISER, "icl_iser", "iSCSI iser backend");
 static uma_zone_t icl_pdu_zone;
 
@@ -142,7 +147,7 @@ iser_conn_pdu_append_data(struct icl_conn *ic, struct icl_pdu *request,
 	struct iser_conn *iser_conn = icl_to_iser_conn(ic);
 
 	if (request->ip_bhs->bhs_opcode & ISCSI_BHS_OPCODE_LOGIN_REQUEST) {
-		printf("%s copy to login buff\n", __func__);
+		iser_dbg("copy to login buff");
 		memcpy(iser_conn->login_req_buf, addr, len);
 		request->ip_data_len = len;
 	}
@@ -171,7 +176,7 @@ iser_new_pdu(struct icl_conn *ic, int flags)
 
 	iser_pdu = uma_zalloc(icl_pdu_zone, flags | M_ZERO);
 	if (iser_pdu == NULL) {
-		ICL_WARN("failed to allocate %zd bytes", sizeof(struct icl_iser_pdu));
+		iser_warn("failed to allocate %zd bytes", sizeof(*iser_pdu));
 		return (NULL);
 	}
 	iser_pdu->iser_conn = iser_conn;
@@ -225,7 +230,7 @@ is_control_opcode(uint8_t opcode)
 			is_control = false;
 			break;
 		default:
-			printf("%s: ### unknown opcode %d ###\n", __func__, opcode);
+			iser_err("unknown opcode %d", opcode);
 	}
 	return is_control;
 }
@@ -250,12 +255,11 @@ iser_new_conn(const char *name, struct mtx *lock)
 	struct iser_conn *iser_conn;
 	struct icl_conn *ic;
 
-	printf("%s\n", __func__);
 	refcount_acquire(&icl_iser_ncons);
 
 	iser_conn = (struct iser_conn *)kobj_create(&icl_iser_class, M_ICL_ISER, M_WAITOK | M_ZERO);
 	if (!iser_conn) {
-		printf("failed to allocate iser conn\n");
+		iser_err("failed to allocate iser conn");
 		refcount_release(&icl_iser_ncons);
 		return (NULL);
 	}
@@ -279,8 +283,6 @@ iser_conn_free(struct icl_conn *ic)
 {
 	struct iser_conn *iser_conn = icl_to_iser_conn(ic);
 
-	printf("%s\n", __func__);
-
 	cv_destroy(&iser_conn->ib_conn.flush_cv);
 	mtx_destroy(&iser_conn->ib_conn.flush_lock);
 	sx_destroy(&iser_conn->state_mutex);
@@ -295,8 +297,6 @@ iser_conn_handoff(struct icl_conn *ic, int cmds_max)
 {
 	struct iser_conn *iser_conn = icl_to_iser_conn(ic);
 
-	printf("%s\n", __func__);
-
 	if (iser_alloc_rx_descriptors(iser_conn, cmds_max))
 		goto out;
 
@@ -308,7 +308,7 @@ iser_conn_handoff(struct icl_conn *ic, int cmds_max)
 post_error:
 	iser_free_rx_descriptors(iser_conn);
 out:
-	printf("%s: fail in handoff stage\n", __func__);
+	iser_err("fail in handoff stage");
 	return (-ENOMEM);
 
 }
@@ -318,7 +318,8 @@ iser_conn_close(struct icl_conn *ic)
 {
 	struct iser_conn *iser_conn = icl_to_iser_conn(ic);
 
-	printf("%s: closing conn %p \n", __func__, iser_conn);
+	iser_info("closing conn %p \n", iser_conn);
+
 	iser_conn_terminate(iser_conn);
 	iser_conn_release(iser_conn);
 
@@ -330,7 +331,6 @@ iser_conn_connected(struct icl_conn *ic)
 	struct iser_conn *iser_conn = icl_to_iser_conn(ic);
 	bool connected = false;
 
-	printf("%s\n", __func__);
 	sx_slock(&iser_conn->state_mutex);
 	if (iser_conn->state == ISER_CONN_UP)
 		connected = true;
@@ -377,8 +377,6 @@ iser_conn_task_done(struct icl_conn *ic, void *prv)
 static int
 iser_limits(size_t *limitp)
 {
-
-	printf("%s\n", __func__);
 	*limitp = 128 * 1024;
 
 	return (0);
@@ -389,7 +387,6 @@ icl_iser_load(void)
 {
 	int error;
 
-	printf("%s\n", __func__);
 	icl_pdu_zone = uma_zcreate("icl_iser_pdu",
 	    sizeof(struct icl_iser_pdu), NULL, NULL, NULL, NULL,
 	    UMA_ALIGN_PTR, 0);
@@ -411,8 +408,6 @@ icl_iser_load(void)
 static int
 icl_iser_unload(void)
 {
-	printf("%s\n", __func__);
-
 	if (icl_iser_ncons != 0)
 		return (EBUSY);
 
@@ -429,7 +424,6 @@ icl_iser_unload(void)
 static int
 icl_iser_modevent(module_t mod, int what, void *arg)
 {
-
 	switch (what) {
 	case MOD_LOAD:
 		return (icl_iser_load());
