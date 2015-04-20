@@ -297,13 +297,6 @@ struct iser_device {
 	int                          refcount;
 	int			     comps_used;
 	struct iser_comp	     comps[ISER_MAX_CQ];
-	int                          (*iser_alloc_rdma_reg_res)(struct ib_conn *ib_conn,
-								unsigned cmds_max);
-	void                         (*iser_free_rdma_reg_res)(struct ib_conn *ib_conn);
-	int                          (*iser_reg_rdma_mem)(struct icl_iser_pdu *iser_pdu,
-							  enum iser_data_dir cmd_dir);
-	void                         (*iser_unreg_rdma_mem)(struct icl_iser_pdu *iser_pdu,
-								enum iser_data_dir cmd_dir);
 };
 
 /**
@@ -446,10 +439,10 @@ int
 iser_send_command(struct iser_conn *, struct icl_iser_pdu *);
 
 int
-iser_reg_rdma_mem_fastreg(struct icl_iser_pdu *, enum iser_data_dir);
+iser_reg_rdma_mem(struct icl_iser_pdu *, enum iser_data_dir);
 
 void
-iser_unreg_mem_fastreg(struct icl_iser_pdu *, enum iser_data_dir);
+iser_unreg_rdma_mem(struct icl_iser_pdu *, enum iser_data_dir);
 
 int
 iser_create_fastreg_pool(struct ib_conn *, unsigned);
