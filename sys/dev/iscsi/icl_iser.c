@@ -107,7 +107,7 @@ out:
 
 int
 iser_conn_pdu_append_data(struct icl_conn *ic, struct icl_pdu *request,
-    const void *addr, size_t len, int flags)
+			  const void *addr, size_t len, int flags)
 {
 	struct iser_conn *iser_conn = icl_to_iser_conn(ic);
 
@@ -122,7 +122,7 @@ iser_conn_pdu_append_data(struct icl_conn *ic, struct icl_pdu *request,
 
 void
 iser_conn_pdu_get_data(struct icl_conn *ic, struct icl_pdu *ip,
-    size_t off, void *addr, size_t len)
+		       size_t off, void *addr, size_t len)
 {
 	/* copy only in case mbuf isn't NULL - login stage */
 	if (ip->ip_data_mbuf)
@@ -144,6 +144,7 @@ iser_new_pdu(struct icl_conn *ic, int flags)
 		iser_warn("failed to allocate %zd bytes", sizeof(*iser_pdu));
 		return (NULL);
 	}
+
 	iser_pdu->iser_conn = iser_conn;
 	ip = &iser_pdu->icl_pdu;
 	ip->ip_conn = ic;
@@ -168,9 +169,8 @@ iser_pdu_free(struct icl_conn *ic, struct icl_pdu *ip)
 
 size_t
 iser_conn_pdu_data_segment_length(struct icl_conn *ic,
-    const struct icl_pdu *request)
+				  const struct icl_pdu *request)
 {
-
 	return (ntoh24(request->ip_bhs->bhs_data_segment_len));
 }
 
@@ -228,6 +228,7 @@ iser_new_conn(const char *name, struct mtx *lock)
 		refcount_release(&icl_iser_ncons);
 		return (NULL);
 	}
+
 	mtx_init(&iser_conn->up_lock, "iser_lock", NULL, MTX_DEF);
 	cv_init(&iser_conn->up_cv, "iser_cv");
 	sx_init(&iser_conn->state_mutex,  "iser_conn_state_mutex");
@@ -306,7 +307,7 @@ iser_conn_connected(struct icl_conn *ic)
 
 int
 iser_conn_task_setup(struct icl_conn *ic, struct ccb_scsiio *csio,
-    uint32_t *task_tagp, void **prvp, struct icl_pdu *ip)
+		     uint32_t *task_tagp, void **prvp, struct icl_pdu *ip)
 {
 	struct icl_iser_pdu *iser_pdu = icl_to_iser_pdu(ip);
 
@@ -319,24 +320,24 @@ iser_conn_task_setup(struct icl_conn *ic, struct ccb_scsiio *csio,
 void
 iser_conn_task_done(struct icl_conn *ic, void *prv)
 {
-	struct icl_pdu *ip = (struct icl_pdu *)prv;
+	struct icl_pdu *ip = prv;
 	struct icl_iser_pdu *iser_pdu = icl_to_iser_pdu(ip);
 
 	if (iser_pdu->dir[ISER_DIR_IN]) {
 		iser_unreg_rdma_mem(iser_pdu, ISER_DIR_IN);
 		iser_dma_unmap_task_data(iser_pdu,
-						 &iser_pdu->data[ISER_DIR_IN],
-						 DMA_FROM_DEVICE);
+					 &iser_pdu->data[ISER_DIR_IN],
+					 DMA_FROM_DEVICE);
 	}
 
 	if (iser_pdu->dir[ISER_DIR_OUT]) {
 		iser_unreg_rdma_mem(iser_pdu, ISER_DIR_OUT);
 		iser_dma_unmap_task_data(iser_pdu,
-						 &iser_pdu->data[ISER_DIR_OUT],
-						 DMA_TO_DEVICE);
+					 &iser_pdu->data[ISER_DIR_OUT],
+					 DMA_TO_DEVICE);
 	}
-	iser_pdu_free(ic, ip);
 
+	iser_pdu_free(ic, ip);
 }
 
 static int
@@ -352,15 +353,18 @@ icl_iser_load(void)
 {
 	int error;
 
-	icl_pdu_zone = uma_zcreate("icl_iser_pdu",
-	    sizeof(struct icl_iser_pdu), NULL, NULL, NULL, NULL,
-	    UMA_ALIGN_PTR, 0);
+	icl_pdu_zone = uma_zcreate("icl_iser_pdu", sizeof(struct icl_iser_pdu),
+				   NULL, NULL, NULL, NULL,
+				   UMA_ALIGN_PTR, 0);
+	/* FIXME: Check rc */
+
 	refcount_init(&icl_iser_ncons, 0);
 
 	error = icl_register("iser", 0, iser_limits, iser_new_conn);
 	KASSERT(error == 0, ("failed to register iser"));
 
 	memset(&ig, 0, sizeof(struct iser_global));
+
 	/* device init is called only after the first addr resolution */
 	sx_init(&ig.device_list_mutex,  "global_device_lock");
 	INIT_LIST_HEAD(&ig.device_list);
