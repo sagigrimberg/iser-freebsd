@@ -279,14 +279,14 @@ iser_fast_reg_mr(struct icl_iser_pdu *iser_pdu,
 }
 
 /**
- * iser_reg_rdma_mem_fastreg - Registers memory intended for RDMA,
+ * iser_reg_rdma_mem - Registers memory intended for RDMA,
  * using Fast Registration WR (if possible) obtaining rkey and va
  *
  * returns 0 on success, errno code on failure
  */
 int
-iser_reg_rdma_mem_fastreg(struct icl_iser_pdu *iser_pdu,
-			  enum iser_data_dir cmd_dir)
+iser_reg_rdma_mem(struct icl_iser_pdu *iser_pdu,
+		  enum iser_data_dir cmd_dir)
 {
 	struct ib_conn *ib_conn = &iser_pdu->iser_conn->ib_conn;
 	struct iser_device   *device = ib_conn->device;
@@ -322,8 +322,8 @@ err_reg:
 }
 
 void
-iser_unreg_mem_fastreg(struct icl_iser_pdu *iser_pdu,
-			enum iser_data_dir cmd_dir)
+iser_unreg_rdma_mem(struct icl_iser_pdu *iser_pdu,
+	       enum iser_data_dir cmd_dir)
 {
 	struct iser_mem_reg *reg = &iser_pdu->rdma_reg[cmd_dir];
 
