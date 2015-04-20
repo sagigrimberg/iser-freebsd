@@ -464,7 +464,7 @@ iser_snd_completion(struct iser_tx_desc *, struct ib_conn *);
 
 void
 iser_rcv_completion(struct iser_rx_desc *, unsigned long,
-		struct ib_conn *);
+		    struct ib_conn *);
 
 void
 iser_pdu_free(struct icl_conn *, struct icl_pdu *);
@@ -501,8 +501,8 @@ iser_free_fastreg_pool(struct ib_conn *);
 
 int
 iser_dma_map_task_data(struct icl_iser_pdu *,
-				struct iser_data_buf *, enum iser_data_dir,
-				enum dma_data_direction);
+		       struct iser_data_buf *, enum iser_data_dir,
+		       enum dma_data_direction);
 
 int
 iser_conn_terminate(struct iser_conn *);
@@ -512,6 +512,6 @@ iser_conn_release(struct iser_conn *);
 
 void
 iser_dma_unmap_task_data(struct icl_iser_pdu *, struct iser_data_buf *,
-			      enum dma_data_direction);
+			 enum dma_data_direction);
 
 #endif /* !ICL_ISER_H */
