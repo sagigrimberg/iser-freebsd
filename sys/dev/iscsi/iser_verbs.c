@@ -284,30 +284,28 @@ iser_free_reg_res(struct iser_reg_resources *rsc)
 	ib_free_fast_reg_page_list(rsc->frpl);
 }
 
-static int
-iser_create_fastreg_desc(struct ib_device *ib_device, struct ib_pd *pd,
-			 bool pi_enable, struct fast_reg_descriptor *desc)
+static struct fast_reg_descriptor *
+iser_create_fastreg_desc(struct ib_device *ib_device, struct ib_pd *pd)
 {
+	struct fast_reg_descriptor *desc;
 	int ret;
+
+	desc = malloc(sizeof(*desc), M_ISER_VERBS, M_WAITOK | M_ZERO);
+	if (!desc) {
+		iser_err("Failed to allocate a new fastreg descriptor");
+		return ERR_PTR(-ENOMEM);
+	}
 
 	ret = iser_alloc_reg_res(ib_device, pd, &desc->rsc);
 	if (ret) {
 		iser_err("failed to allocate reg_resources");
-		return ret;
+		goto err;
 	}
 
-	if (pi_enable) {
-		iser_err("pi isn't supported");
-		ret = 1;
-		goto pi_ctx_alloc_failure;
-	}
-
-	return 0;
-
-pi_ctx_alloc_failure:
-	iser_free_reg_res(&desc->rsc);
-
-	return ret;
+	return desc;
+err:
+	free(desc, M_ISER_VERBS);
+	return ERR_PTR(ret);
 }
 
 /**
@@ -325,19 +323,11 @@ iser_create_fastreg_pool(struct ib_conn *ib_conn, unsigned cmds_max)
 	INIT_LIST_HEAD(&ib_conn->fastreg.pool);
 	ib_conn->fastreg.pool_size = 0;
 	for (i = 0; i < cmds_max; i++) {
-		desc = malloc(sizeof(*desc), M_ISER_VERBS, M_WAITOK | M_ZERO);
-		if (!desc) {
-			iser_err("Failed to allocate a new fastreg descriptor");
-			ret = -ENOMEM;
-			goto err;
-		}
-
-		ret = iser_create_fastreg_desc(device->ib_device, device->pd,
-						   false, desc);
-		if (ret) {
+		desc = iser_create_fastreg_desc(device->ib_device, device->pd);
+		if (IS_ERR(desc)) {
+			ret = PTR_ERR(desc);
 			iser_err("Failed to create fastreg descriptor err=%d",
 				 ret);
-			free(desc, M_ISER_VERBS);
 			goto err;
 		}
 
@@ -349,7 +339,7 @@ iser_create_fastreg_pool(struct ib_conn *ib_conn, unsigned cmds_max)
 
 err:
 	iser_free_fastreg_pool(ib_conn);
-	return ret;
+	return (ret);
 }
 
 /**
