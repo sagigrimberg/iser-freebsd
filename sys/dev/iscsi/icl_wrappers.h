@@ -63,13 +63,6 @@ icl_pdu_append_data(struct icl_pdu *ip, const void *addr, size_t len, int flags)
 	return (ICL_CONN_PDU_APPEND_DATA(ip->ip_conn, ip, addr, len, flags));
 }
 
-static inline int
-icl_pdu_append_login_data(struct icl_pdu *ip, const void *addr, size_t len, int flags)
-{
-
-	return (ICL_CONN_PDU_APPEND_LOGIN_DATA(ip->ip_conn, ip, addr, len, flags));
-}
-
 static inline void
 icl_pdu_get_data(struct icl_pdu *ip, size_t off, void *addr, size_t len)
 {
@@ -147,14 +140,6 @@ icl_conn_transfer_done(struct icl_conn *ic, void *prv)
 {
 
 	ICL_CONN_TRANSFER_DONE(ic, prv);
-}
-
-static inline int
-icl_login_pdu_queue(struct icl_conn *ic, int flags, size_t datalen,
-		void *data, void *bhs)
-{
-
-	return ICL_CONN_LOGIN_PDU_QUEUE(ic, flags, datalen, data, bhs);
 }
 
 #endif /* !ICL_WRAPPERS_H */

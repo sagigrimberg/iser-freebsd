@@ -46,14 +46,6 @@ METHOD int pdu_append_data {
 	int _flags;
 };
 
-METHOD int pdu_append_login_data {
-	struct icl_conn *_ic;
-	struct icl_pdu *_ip;
-	const void *_addr;
-	size_t _len;
-	int _flags;
-};
-
 METHOD void pdu_get_data {
 	struct icl_conn *_ic;
 	struct icl_pdu *_ip;
@@ -117,12 +109,4 @@ METHOD int transfer_setup {
 METHOD void transfer_done {
 	struct icl_conn *_ic;
 	void *_prv;
-};
-
-METHOD int login_pdu_queue {
-	struct icl_conn *_ic;
-	int flags;
-	size_t datalen;
-	void *data;
-	void *bhs;
 };
