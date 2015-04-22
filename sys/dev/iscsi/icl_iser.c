@@ -354,6 +354,8 @@ icl_iser_load(void)
 {
 	int error;
 
+	iser_dbg("Starting iSER datamover...");
+
 	icl_pdu_zone = uma_zcreate("icl_iser_pdu", sizeof(struct icl_iser_pdu),
 				   NULL, NULL, NULL, NULL,
 				   UMA_ALIGN_PTR, 0);
@@ -378,6 +380,8 @@ icl_iser_load(void)
 static int
 icl_iser_unload(void)
 {
+	iser_dbg("Removing iSER datamover...");
+
 	if (icl_iser_ncons != 0)
 		return (EBUSY);
 
