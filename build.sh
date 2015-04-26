@@ -62,7 +62,7 @@ main()
 	fi
 
 	if [[ -n $USR ]]; then
-		cmd="make -C $PWD/usr.sbin/iscsid -m $SHARE SYSDIR=$SYSDIR all install clean cleandepend"
+		cmd="make -C $PWD/usr.sbin/iscsid -m $SHARE all install clean cleandepend"
 		echo $cmd
 		$cmd
 		cmd="make -C $PWD/usr.bin/iscsictl -m $SHARE all install clean cleandepend"
