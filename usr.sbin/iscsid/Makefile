@@ -10,7 +10,7 @@ MAN=		iscsid.8
 
 LIBADD=		crypto util
 
-LDFLAGS+=	-lssl -lutil
+LDFLAGS+=	-lssl -lutil -lcrypto
 
 WARNS=		6
 
