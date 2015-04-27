@@ -84,7 +84,6 @@ __FBSDID("$FreeBSD$");
 #include <sys/systm.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#include <rdma/rdma_cm.h>
 
 #include <dev/iscsi/icl.h>
 
