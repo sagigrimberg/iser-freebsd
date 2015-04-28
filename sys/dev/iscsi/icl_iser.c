@@ -409,9 +409,9 @@ icl_iser_modevent(module_t mod, int what, void *arg)
 }
 
 moduledata_t icl_iser_data = {
-	"icl_iser",
-	icl_iser_modevent,
-	0
+	.name = "icl_iser",
+	.evhand = icl_iser_modevent,
+	.priv = 0
 };
 
 DECLARE_MODULE(icl_iser, icl_iser_data, SI_SUB_DRIVERS, SI_ORDER_MIDDLE);
