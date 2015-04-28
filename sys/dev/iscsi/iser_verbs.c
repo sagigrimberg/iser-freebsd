@@ -97,7 +97,9 @@ iser_cq_tasklet_fn(void *data, int pending)
 	struct iser_comp *comp = (struct iser_comp *)data;
 	struct ib_cq *cq = comp->cq;
 	struct ib_wc *const wcs = comp->wcs;
-	int i, n, completed = 0;
+	int completed = 0;
+	int i;
+	int n;
 
 	while ((n = ib_poll_cq(cq, ARRAY_SIZE(comp->wcs), wcs)) > 0) {
 		for (i = 0; i < n; i++)
