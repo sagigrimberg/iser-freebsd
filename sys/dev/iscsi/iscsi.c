@@ -1347,7 +1347,7 @@ iscsi_ioctl_daemon_handoff(struct iscsi_softc *sc,
     struct iscsi_daemon_handoff *handoff)
 {
 	struct iscsi_session *is;
-	int error = 0;
+	int error;
 
 	sx_slock(&sc->sc_lock);
 
@@ -1619,7 +1619,6 @@ iscsi_ioctl_daemon_send(struct iscsi_softc *sc,
 		KASSERT(error == 0, ("icl_pdu_append_data(..., M_WAITOK) failed"));
 		free(data, M_ISCSI);
 	}
-
 	icl_pdu_queue(ip);
 
 	return (0);
@@ -1633,7 +1632,6 @@ iscsi_ioctl_daemon_receive(struct iscsi_softc *sc,
 	struct icl_pdu *ip;
 	void *data;
 
-	printf("%s\n", __func__);
 	sx_slock(&sc->sc_lock);
 	TAILQ_FOREACH(is, &sc->sc_sessions, is_next) {
 		if (is->is_id == idr->idr_session_id)
@@ -1653,7 +1651,6 @@ iscsi_ioctl_daemon_receive(struct iscsi_softc *sc,
 	    is->is_terminating == false &&
 	    is->is_reconnecting == false)
 		cv_wait(&is->is_login_cv, &is->is_lock);
-
 	if (is->is_terminating || is->is_reconnecting) {
 		ISCSI_SESSION_UNLOCK(is);
 		return (EIO);
