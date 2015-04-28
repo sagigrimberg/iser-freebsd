@@ -296,11 +296,10 @@ bool
 iser_conn_connected(struct icl_conn *ic)
 {
 	struct iser_conn *iser_conn = icl_to_iser_conn(ic);
-	bool connected = false;
+	bool connected;
 
 	sx_slock(&iser_conn->state_mutex);
-	if (iser_conn->state == ISER_CONN_UP)
-		connected = true;
+	connected = (iser_conn->state == ISER_CONN_UP);
 	sx_sunlock(&iser_conn->state_mutex);
 
 	return (connected);
