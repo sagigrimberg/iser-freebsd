@@ -1,4 +1,5 @@
-/*
+/* $FreeBSD$ */
+/*-
  * Copyright (c) 2015, Mellanox Technologies, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,8 +25,6 @@
  */
 
 #include "icl_iser.h"
-
-__FBSDID("$FreeBSD$");
 
 SYSCTL_NODE(_kern, OID_AUTO, iser, CTLFLAG_RD, 0, "iSER module");
 int iser_debug = 0;
