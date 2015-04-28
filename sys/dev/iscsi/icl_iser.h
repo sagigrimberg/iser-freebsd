@@ -65,21 +65,21 @@
 #include "icl.h"
 #include "iscsi_proto.h"
 
-#define	iser_dbg(X, ...)						\
+#define	ISER_DBG(X, ...)						\
 	do {								\
 		if (unlikely(iser_debug > 2))				\
 			printf("DEBUG: %s: " X "\n",			\
 				__func__, ## __VA_ARGS__);		\
 	} while (0)
 
-#define	iser_info(X, ...)						\
+#define	ISER_INFO(X, ...)						\
 	do {								\
 		if (unlikely(iser_debug > 1))				\
 			printf("INFO: %s: " X "\n",			\
 				__func__, ## __VA_ARGS__);		\
 	} while (0)
 
-#define	iser_warn(X, ...)						\
+#define	ISER_WARN(X, ...)						\
 	do {								\
 		if (unlikely(iser_debug > 0)) {				\
 			printf("WARNING: %s: " X "\n",			\
@@ -87,7 +87,7 @@
 		}							\
 	} while (0)
 
-#define iser_err(X, ...) \
+#define	ISER_ERR(X, ...) 						\
 	printf("ERROR: %s: " X "\n", __func__, ## __VA_ARGS__)
 
 #define ISER_VER			0x10

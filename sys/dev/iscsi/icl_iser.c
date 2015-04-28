@@ -112,7 +112,7 @@ iser_conn_pdu_append_data(struct icl_conn *ic, struct icl_pdu *request,
 	struct iser_conn *iser_conn = icl_to_iser_conn(ic);
 
 	if (request->ip_bhs->bhs_opcode & ISCSI_BHS_OPCODE_LOGIN_REQUEST) {
-		iser_dbg("copy to login buff");
+		ISER_DBG("copy to login buff");
 		memcpy(iser_conn->login_req_buf, addr, len);
 		request->ip_data_len = len;
 	}
@@ -141,7 +141,7 @@ iser_new_pdu(struct icl_conn *ic, int flags)
 
 	iser_pdu = uma_zalloc(icl_pdu_zone, flags | M_ZERO);
 	if (iser_pdu == NULL) {
-		iser_warn("failed to allocate %zd bytes", sizeof(*iser_pdu));
+		ISER_WARN("failed to allocate %zd bytes", sizeof(*iser_pdu));
 		return (NULL);
 	}
 
@@ -195,7 +195,7 @@ is_control_opcode(uint8_t opcode)
 			is_control = false;
 			break;
 		default:
-			iser_err("unknown opcode %d", opcode);
+			ISER_ERR("unknown opcode %d", opcode);
 	}
 
 	return (is_control);
@@ -225,7 +225,7 @@ iser_new_conn(const char *name, struct mtx *lock)
 
 	iser_conn = (struct iser_conn *)kobj_create(&icl_iser_class, M_ICL_ISER, M_WAITOK | M_ZERO);
 	if (!iser_conn) {
-		iser_err("failed to allocate iser conn");
+		ISER_ERR("failed to allocate iser conn");
 		refcount_release(&icl_iser_ncons);
 		return (NULL);
 	}
@@ -275,7 +275,7 @@ iser_conn_handoff(struct icl_conn *ic, int cmds_max)
 post_error:
 	iser_free_rx_descriptors(iser_conn);
 out:
-	iser_err("fail in handoff stage");
+	ISER_ERR("fail in handoff stage");
 	return (-ENOMEM);
 
 }
@@ -285,7 +285,7 @@ iser_conn_close(struct icl_conn *ic)
 {
 	struct iser_conn *iser_conn = icl_to_iser_conn(ic);
 
-	iser_info("closing conn %p \n", iser_conn);
+	ISER_INFO("closing conn %p \n", iser_conn);
 
 	iser_conn_terminate(iser_conn);
 	iser_conn_release(iser_conn);
@@ -353,7 +353,7 @@ icl_iser_load(void)
 {
 	int error;
 
-	iser_dbg("Starting iSER datamover...");
+	ISER_DBG("Starting iSER datamover...");
 
 	icl_pdu_zone = uma_zcreate("icl_iser_pdu", sizeof(struct icl_iser_pdu),
 				   NULL, NULL, NULL, NULL,
@@ -379,7 +379,7 @@ icl_iser_load(void)
 static int
 icl_iser_unload(void)
 {
-	iser_dbg("Removing iSER datamover...");
+	ISER_DBG("Removing iSER datamover...");
 
 	if (icl_iser_ncons != 0)
 		return (EBUSY);
