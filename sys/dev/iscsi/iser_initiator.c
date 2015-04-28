@@ -49,7 +49,7 @@ iser_prepare_read_cmd(struct icl_iser_pdu *iser_pdu)
 
 	err = iser_reg_rdma_mem(iser_pdu, ISER_DIR_IN);
 	if (err) {
-		iser_err("Failed to set up Data-IN RDMA");
+		ISER_ERR("Failed to set up Data-IN RDMA");
 		return (err);
 	}
 
@@ -84,7 +84,7 @@ iser_prepare_write_cmd(struct icl_iser_pdu *iser_pdu)
 
 	err = iser_reg_rdma_mem(iser_pdu, ISER_DIR_OUT);
 	if (err) {
-		iser_err("Failed to set up Data-out RDMA");
+		ISER_ERR("Failed to set up Data-out RDMA");
 		return (err);
 	}
 
@@ -114,7 +114,7 @@ iser_create_send_desc(struct iser_conn *iser_conn,
 
 	if (tx_desc->tx_sg[0].lkey != device->mr->lkey) {
 		tx_desc->tx_sg[0].lkey = device->mr->lkey;
-		iser_dbg("sdesc %p lkey mismatch, fixing", tx_desc);
+		ISER_DBG("sdesc %p lkey mismatch, fixing", tx_desc);
 	}
 }
 
@@ -191,7 +191,7 @@ free_login_buf:
 	iser_free_login_buf(iser_conn);
 
 out_err:
-	iser_dbg("unable to alloc or map login buf");
+	ISER_DBG("unable to alloc or map login buf");
 	return (-ENOMEM);
 }
 
@@ -248,7 +248,7 @@ rx_desc_dma_map_failed:
 rx_desc_alloc_fail:
 	iser_free_fastreg_pool(ib_conn);
 create_rdma_reg_res_failed:
-	iser_err("failed allocating rx descriptors / data buffers");
+	ISER_ERR("failed allocating rx descriptors / data buffers");
 
 	return (-ENOMEM);
 }
@@ -345,7 +345,7 @@ iser_send_command(struct iser_conn *iser_conn,
 		return (0);
 
 send_command_error:
-	iser_err("iser_conn %p itt %u len %u err %d", iser_conn,
+	ISER_ERR("iser_conn %p itt %u len %u err %d", iser_conn,
 			hdr->bhssc_initiator_task_tag,
 			hdr->bhssc_expected_data_transfer_length,
 			err);
@@ -398,7 +398,7 @@ iser_send_control(struct iser_conn *iser_conn,
 		return (0);
 
 send_control_error:
-	iser_err("conn %p failed err %d", iser_conn, err);
+	ISER_ERR("conn %p failed err %d", iser_conn, err);
 
 	return (err);
 
@@ -462,7 +462,7 @@ iser_rcv_completion(struct iser_rx_desc *rx_desc,
 			    iser_conn->min_posted_rx);
 		err = iser_post_recvm(iser_conn, count);
 		if (err)
-			iser_err("posting %d rx bufs err %d", count, err);
+			ISER_ERR("posting %d rx bufs err %d", count, err);
 	}
 
 receive:
