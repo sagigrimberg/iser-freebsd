@@ -638,13 +638,6 @@ iser_addr_handler(struct rdma_cm_id *cma_id)
 	int    ret;
 
 	iser_conn = cma_id->context;
-	sx_slock(&iser_conn->state_mutex);
-	if (iser_conn->state != ISER_CONN_PENDING) {
-		/* bailout */
-		sx_sunlock(&iser_conn->state_mutex);
-		return;
-	}
-	sx_sunlock(&iser_conn->state_mutex);
 
 	ib_conn = &iser_conn->ib_conn;
 	device = iser_device_find_by_ib_device(cma_id);
@@ -672,14 +665,6 @@ iser_route_handler(struct rdma_cm_id *cma_id)
 	struct iser_conn *iser_conn = cma_id->context;
 	struct ib_conn *ib_conn = &iser_conn->ib_conn;
 	struct iser_device *device = ib_conn->device;
-
-	sx_slock(&iser_conn->state_mutex);
-	if (iser_conn->state != ISER_CONN_PENDING) {
-		/* bailout */
-		sx_sunlock(&iser_conn->state_mutex);
-		return;
-	}
-	sx_sunlock(&iser_conn->state_mutex);
 
 	ret = iser_create_ib_conn_res(ib_conn);
 	if (ret)
