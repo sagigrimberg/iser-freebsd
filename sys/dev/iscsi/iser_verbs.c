@@ -723,8 +723,12 @@ iser_cleanup_handler(struct rdma_cm_id *cma_id, bool destroy)
 {
 	struct iser_conn *iser_conn = cma_id->context;
 
-	if (iser_conn)
+	if (iser_conn) {
+		sx_xlock(&iser_conn->state_mutex);
+		iser_conn->state = ISER_CONN_TERMINATING;
+		sx_xunlock(&iser_conn->state_mutex);
 		iser_conn->icl_conn.ic_error(&iser_conn->icl_conn);
+	}
 };
 
 static int
