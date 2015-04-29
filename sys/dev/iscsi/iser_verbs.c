@@ -623,9 +623,9 @@ iser_connect_error(struct rdma_cm_id *cma_id)
 
 	ISER_ERR("conn %p\n", iser_conn);
 
-	sx_xlock(&iser_conn->state_mutex);
+	mtx_lock(&iser_conn->state_mutex);
 	iser_conn->state = ISER_CONN_TERMINATING;
-	sx_xunlock(&iser_conn->state_mutex);
+	mtx_unlock(&iser_conn->state_mutex);
 	cv_signal(&iser_conn->up_cv);
 }
 
@@ -712,9 +712,9 @@ iser_connected_handler(struct rdma_cm_id *cma_id)
 	ISER_INFO("remote qpn:%x my qpn:%x",
 		  attr.dest_qp_num, cma_id->qp->qp_num);
 
-	sx_xlock(&iser_conn->state_mutex);
+	mtx_lock(&iser_conn->state_mutex);
 	iser_conn->state = ISER_CONN_UP;
-	sx_xunlock(&iser_conn->state_mutex);
+	mtx_unlock(&iser_conn->state_mutex);
 	cv_signal(&iser_conn->up_cv);
 }
 
@@ -724,9 +724,9 @@ iser_cleanup_handler(struct rdma_cm_id *cma_id, bool destroy)
 	struct iser_conn *iser_conn = cma_id->context;
 
 	if (iser_conn) {
-		sx_xlock(&iser_conn->state_mutex);
+		mtx_lock(&iser_conn->state_mutex);
 		iser_conn->state = ISER_CONN_TERMINATING;
-		sx_xunlock(&iser_conn->state_mutex);
+		mtx_unlock(&iser_conn->state_mutex);
 		iser_conn->icl_conn.ic_error(&iser_conn->icl_conn);
 	}
 };
@@ -782,9 +782,9 @@ iser_conn_connect(struct icl_conn *ic, int domain, int socktype,
 	 /* the device is known only --after-- address resolution */
 	ib_conn->device = NULL;
 
-	sx_xlock(&iser_conn->state_mutex);
+	mtx_lock(&iser_conn->state_mutex);
 	iser_conn->state = ISER_CONN_PENDING;
-	sx_xunlock(&iser_conn->state_mutex);
+	mtx_unlock(&iser_conn->state_mutex);
 
 	ib_conn->beacon.wr_id = ISER_BEACON_WRID;
 	ib_conn->beacon.opcode = IB_WR_SEND;
@@ -808,13 +808,13 @@ iser_conn_connect(struct icl_conn *ic, int domain, int socktype,
 	mtx_unlock(&iser_conn->up_lock);
 	ISER_DBG("after cv_wait: %p", iser_conn);
 
-	sx_slock(&iser_conn->state_mutex);
+	mtx_lock(&iser_conn->state_mutex);
 	if (iser_conn->state != ISER_CONN_UP) {
 		err =  -EIO;
-		sx_sunlock(&iser_conn->state_mutex);
+		mtx_unlock(&iser_conn->state_mutex);
 		goto addr_failure;
 	}
-	sx_sunlock(&iser_conn->state_mutex);
+	mtx_unlock(&iser_conn->state_mutex);
 
 	err = iser_alloc_login_buf(iser_conn);
 	if (err)
