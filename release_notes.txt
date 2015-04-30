@@ -1,0 +1,63 @@
+                        Mellanox Technologies
+
+===============================================================================
+                    Mellanox Storage drivers for FreeBSD
+                      Versions:
+                        iSER-0.1 (pre Alpha)
+                      Last Modified on April, 2015
+===============================================================================
+
+===============================================================================
+Table of Contents
+===============================================================================
+1. Overview
+2. Changes in This Release
+3. Supported Platforms
+4. Supported HCAs
+5. Resolved Issues
+6. Known Issues
+
+===============================================================================
+1. Overview
+===============================================================================
+These are the release notes of Mellanox iSCSI/iSER drivers for FreeBSD.
+For source code and README please see:
+https://github.com/sagigrimberg/iser-freebsd
+
+===============================================================================
+2. Changes in This Release
+===============================================================================
+iSER:
+ - initial support for FreeBSD-11.0 (user and kernel space)
+
+===============================================================================
+3. Supported Platforms
+===============================================================================
+Supported platform is amd64.
+
+===============================================================================
+4. Supported HCAs
+===============================================================================
+* ConnectX-3 with FW version 2.11.1192 and 2.32.6410.
+
+===============================================================================
+5. Resolved Issues
+===============================================================================
+iSER:
+ - None (initial)
+
+===============================================================================
+6. Known Issues
+===============================================================================
+iSER:
+ - Double free of icl_iser_pdu under login/logout stress with traffic causing
+   system crush.
+
+ - diskinfo -t /dev/da0 test causing system crush (iser_dma_unmap_task_data).
+
+ - newfs /dev/da0 test causing system crush (iser_dma_unmap_task_data).
+
+ - Port toggle during traffic causing system crush (iser_dma_unmap_task_data).
+
+ - Still no iSER info in Login request message (iscsid support).
+
