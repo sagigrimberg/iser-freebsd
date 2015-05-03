@@ -172,7 +172,7 @@ connection_new(int iscsi_fd, const struct iscsi_daemon_request *request)
 	conn->conn_data_digest = CONN_DIGEST_NONE;
 	conn->conn_initial_r2t = true;
 	conn->conn_immediate_data = true;
-	conn->conn_max_data_segment_length = 8192;
+	conn->conn_max_data_segment_length = ISCSI_DEF_MAX_RECV_SEG_LEN;
 	conn->conn_max_burst_length = 262144;
 	conn->conn_first_burst_length = 65536;
 	conn->conn_iscsi_fd = iscsi_fd;
