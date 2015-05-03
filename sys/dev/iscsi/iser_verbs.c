@@ -244,6 +244,9 @@ iser_free_device_ib_res(struct iser_device *device)
 	(void)ib_dereg_mr(device->mr);
 	(void)ib_dealloc_pd(device->pd);
 
+	free(device->comps, M_ISER_VERBS);
+	device->comps = NULL;
+
 	device->mr = NULL;
 	device->pd = NULL;
 }
