@@ -46,6 +46,8 @@
 #define CONN_MUTUAL_CHALLENGE_LEN	1024
 #define	SOCKBUF_SIZE			1048576
 
+#define ISCSI_DEF_MAX_RECV_SEG_LEN 8192
+
 struct connection {
 	int			conn_iscsi_fd;
 	int			conn_socket;

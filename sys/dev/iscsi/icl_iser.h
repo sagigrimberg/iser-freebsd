@@ -173,8 +173,6 @@ struct iser_cm_hdr {
 #define ISER_RECV_DATA_SEG_LEN	128
 #define ISER_RX_PAYLOAD_SIZE	(ISER_HEADERS_LEN + ISER_RECV_DATA_SEG_LEN)
 
-/* tmp define*/
-#define ISCSI_DEF_MAX_RECV_SEG_LEN 512
 #define ISER_RX_LOGIN_SIZE	(ISER_HEADERS_LEN + ISCSI_DEF_MAX_RECV_SEG_LEN)
 
 enum iser_conn_state {

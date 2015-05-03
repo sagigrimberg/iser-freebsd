@@ -32,6 +32,8 @@
 #ifndef ISCSI_PROTO_H
 #define	ISCSI_PROTO_H
 
+#define ISCSI_DEF_MAX_RECV_SEG_LEN 8192
+
 #ifndef CTASSERT
 #define CTASSERT(x)		_CTASSERT(x, __LINE__)
 #define _CTASSERT(x, y)		__CTASSERT(x, y)
