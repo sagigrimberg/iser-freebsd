@@ -151,7 +151,12 @@ iser_create_device_ib_res(struct iser_device *device)
 		return (-1);
 	}
 	
-	device->comps_used = min(ISER_MAX_CQ, device->ib_device->num_comp_vectors);
+	device->comps_used = min(mp_ncpus, device->ib_device->num_comp_vectors);
+
+	device->comps = malloc(device->comps_used * sizeof(*device->comps),
+		M_ISER_VERBS, M_WAITOK | M_ZERO);
+	if (!device->comps)
+		goto comps_err;
 
 	max_cqe = min(ISER_MAX_CQ_LEN, dev_attr->max_cqe);
 
@@ -212,6 +217,8 @@ cq_err:
 	}
 	ib_dealloc_pd(device->pd);
 pd_err:
+	free(device->comps, M_ISER_VERBS);
+comps_err:
 	ISER_ERR("failed to allocate an IB resource");
 	return (-1);
 }
