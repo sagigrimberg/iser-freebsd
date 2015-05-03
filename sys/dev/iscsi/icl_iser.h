@@ -131,7 +131,6 @@
 					 - ISER_MAX_RX_MISC_PDUS) /	\
 					 (1 + ISER_INFLIGHT_DATAOUTS))
 
-#define ISER_MAX_CQ 4
 #define ISER_WC_BATCH_COUNT   16
 #define ISER_SIGNAL_CMD_COUNT 32
 #define ISER_MAX_CQ_LEN 1024
@@ -345,7 +344,7 @@ struct iser_device {
 	struct list_head             ig_list;
 	int                          refcount;
 	int			     comps_used;
-	struct iser_comp	     comps[ISER_MAX_CQ];
+	struct iser_comp	     *comps;
 };
 
 /**
