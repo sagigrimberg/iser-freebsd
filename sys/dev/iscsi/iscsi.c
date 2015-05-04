@@ -866,7 +866,18 @@ iscsi_pdu_handle_scsi_response(struct icl_pdu *response)
 	}
 
 	ccb = io->io_ccb;
-	received = io->io_received;
+
+	/*
+	 * in iSER after getting good response we are sure
+	 * that the data was transferred
+	 */
+	if (is->is_conn->ic_iser) {
+		if (bhssr->bhssr_status == 0)
+			received = ccb->csio.dxfer_len;
+		else
+			received = 0;
+	} else
+		received = io->io_received;
 
 	iscsi_outstanding_remove(is, io);
 	ISCSI_SESSION_UNLOCK(is);
