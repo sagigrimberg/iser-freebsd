@@ -1428,18 +1428,14 @@ icl_soft_conn_close(struct icl_conn *ic)
 bool
 icl_soft_conn_connected(struct icl_conn *ic)
 {
-	ICL_CONN_LOCK_ASSERT_NOT(ic);
+	ICL_CONN_LOCK_ASSERT(ic);
 
-	ICL_CONN_LOCK(ic);
 	if (ic->ic_socket == NULL) {
-		ICL_CONN_UNLOCK(ic);
 		return (false);
 	}
 	if (ic->ic_socket->so_error != 0) {
-		ICL_CONN_UNLOCK(ic);
 		return (false);
 	}
-	ICL_CONN_UNLOCK(ic);
 	return (true);
 }
 
