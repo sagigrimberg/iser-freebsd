@@ -1445,7 +1445,7 @@ icl_soft_conn_connected(struct icl_conn *ic)
 
 int
 icl_soft_conn_task_setup(struct icl_conn *ic, struct ccb_scsiio *csio,
-    uint32_t *task_tagp, void **prvp)
+    uint32_t *task_tagp, void **prvp, struct icl_pdu *ip)
 {
 
 	return (0);
