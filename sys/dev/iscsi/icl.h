@@ -41,6 +41,8 @@
 #include <sys/kobj.h>
 #include <sys/condvar.h>
 #include <sys/sysctl.h>
+#include <sys/lock.h>
+#include <sys/sx.h>
 
 SYSCTL_DECL(_kern_icl);
 
