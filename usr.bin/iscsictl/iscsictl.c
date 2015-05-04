@@ -559,9 +559,9 @@ usage(void)
 {
 
 	fprintf(stderr, "usage: iscsictl -A -p portal -t target "
-	    "[-u user -s secret]\n");
+	    "[-u user -s secret -T transport]\n");
 	fprintf(stderr, "       iscsictl -A -d discovery-host "
-	    "[-u user -s secret]\n");
+	    "[-u user -s secret -T transport]\n");
 	fprintf(stderr, "       iscsictl -A -a [-c path]\n");
 	fprintf(stderr, "       iscsictl -A -n nickname [-c path]\n");
 	fprintf(stderr, "       iscsictl -M -i session-id [-p portal] "
