@@ -1831,7 +1831,8 @@ iscsi_ioctl_session_remove(struct iscsi_softc *sc,
 		if (iscsi_session_conf_matches(is->is_id, &is->is_conf,
 		    isr->isr_session_id, &isr->isr_conf)) {
 			found = true;
-			iscsi_session_logout(is);
+			if (icl_conn_connected(is->is_conn))
+				iscsi_session_logout(is);
 			iscsi_session_terminate(is);
 		}
 		ISCSI_SESSION_UNLOCK(is);
