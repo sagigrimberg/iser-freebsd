@@ -84,23 +84,9 @@ __FBSDID("$FreeBSD$");
 #include <sys/systm.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#include <linux/types.h>
 #include <rdma/rdma_cm.h>
 
 #include <dev/iscsi/icl.h>
-
-static int debug = 1;
-
-#define	ICL_DEBUG(X, ...)					\
-	if (debug > 1) {					\
-		printf("%s: " X "\n", __func__, ## __VA_ARGS__);\
-	} while (0)
-
-#define	ICL_WARN(X, ...)					\
-	if (debug > 0) {					\
-		printf("WARNING: %s: " X "\n",			\
-		    __func__, ## __VA_ARGS__);			\
-	} while (0)
 
 static MALLOC_DEFINE(M_ICL_PROXY, "ICL_PROXY", "iSCSI common layer proxy");
 
