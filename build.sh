@@ -1,27 +1,43 @@
 #!/bin/bash
 
+DESTDIR=/usr
+SHARE=/usr/share/mk
+SYSDIR=/usr/src/sys
+BINDIR=/bin
+SBINDIR=/sbin
+MANDIR=/share/man/man
+
 usage()
 {
         printf "Usage: ./${IAM} [OPTIONS] \n"
         printf "Script to build iser module\n"
         printf "Options:\n"
-        printf "\t-u                  : build user-space iscsi tools.\n"
-        printf "\t-k                  : build kernel space iscsi stack.\n"
-        printf "\t-s                  : share directory path.\n"
-        printf "\t-d                  : sys directory path.\n"
+        printf "\t-u                  : Build user-space iscsi tools.\n"
+        printf "\t-k                  : Build kernel-space iscsi stack.\n"
+        printf "\t-S                  : Share directory path               (default: $SHARE).\n"
+        printf "\t-D                  : sys directory path                 (default: $SYSDIR).\n"
+        printf "\t-d                  : Install destination directory path (default: $DESTDIR).\n"
+        printf "\t-m                  : Man directory path                 (default: $MANDIR).\n"
+        printf "\t-b                  : bin directory path                 (default: $BINDIR).\n"
+        printf "\t-s                  : sbin directory path                (default: $SBINDIR).\n"
         printf "\t-h                  : Show usage.\n"
 }
 
 read_args()
 {
-	SHARE=/usr/share/mk
-	SYSDIR=/usr/src/sys
-
-        while getopts :s:d:huk FLAG; do
+        while getopts :s:S:d:D:m:b::huk FLAG; do
                 case ${FLAG} in
-                        s)      SHARE=$OPTARG
+                        S)      SHARE=$OPTARG
                                 ;;
-                        d)      SYSDIR=$OPTARG
+                        D)      SYSDIR=$OPTARG
+                                ;;
+                        d)      DESTDIR=$OPTARG
+                                ;;
+                        m)      MANDIR=$OPTARG
+                                ;;
+                        b)      BINDIR=$OPTARG
+                                ;;
+                        s)      SBINDIR=$OPTARG
                                 ;;
                         u)      USR=1
                                 ;;
@@ -32,7 +48,8 @@ read_args()
                         h)      usage
                                 exit
                                 ;;
-                        \?)     exit
+                        \?)	echo "Unknown Value $OPTARG"
+				exit
                 esac
         done
 
@@ -62,13 +79,14 @@ main()
 	fi
 
 	if [[ -n $USR ]]; then
-		cmd="make -C $PWD/usr.sbin/iscsid -m $SHARE all install clean cleandepend"
+		cmd="make -C $PWD/usr.sbin/iscsid -m $SHARE DESTDIR=$DESTDIR BINDIR=$SBINDIR MANDIR=$MANDIR all install clean cleandepend"
 		echo $cmd
 		$cmd
-		cmd="make -C $PWD/usr.bin/iscsictl -m $SHARE all install clean cleandepend"
+		cmd="make -C $PWD/usr.bin/iscsictl -m $SHARE DESTDIR=$DESTDIR BINDIR=$BINDIR MANDIR=$MANDIR all install clean cleandepend"
 		echo $cmd
 		$cmd
 	fi
 }
 
+IAM=`basename "$0"`
 main "$@"
