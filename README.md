@@ -27,9 +27,10 @@ Prior to installing the iSER package for freeBSD, the following prerequisites ar
 Install iSCSI/iSER by following steps:
 
 	- build user-space iscsi tools (iscsid and iscsictl with iSER support)
-		$ ./build.sh -u -s <share directory path>
+		$ ./build.sh -u -S <share directory path> -d <install dest dir> \
+			-b <bin dir> -s <sbin dir> -m <man dir>
 	- build kernel space iscsi stack (with iSER support)
-		$ ./build.sh -k -s <share directory path> -d <sys directory path>
+		$ ./build.sh -k -S <share directory path> -D <sys directory path>
 
 4. HOWTO
 --------
