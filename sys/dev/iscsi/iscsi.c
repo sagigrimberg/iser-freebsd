@@ -169,7 +169,7 @@ static void	iscsi_poll(struct cam_sim *sim);
 static struct iscsi_outstanding	*iscsi_outstanding_find(struct iscsi_session *is,
 		    uint32_t initiator_task_tag);
 static struct iscsi_outstanding	*iscsi_outstanding_add(struct iscsi_session *is,
-		    union ccb *ccb, uint32_t *initiator_task_tagp);
+		    union ccb *ccb, uint32_t *initiator_task_tagp, struct icl_pdu *request);
 static void	iscsi_outstanding_remove(struct iscsi_session *is,
 		    struct iscsi_outstanding *io);
 
@@ -1993,7 +1993,7 @@ iscsi_outstanding_find_ccb(struct iscsi_session *is, union ccb *ccb)
 
 static struct iscsi_outstanding *
 iscsi_outstanding_add(struct iscsi_session *is,
-    union ccb *ccb, uint32_t *initiator_task_tagp)
+    union ccb *ccb, uint32_t *initiator_task_tagp, struct icl_pdu *request)
 {
 	struct iscsi_outstanding *io;
 	int error;
@@ -2008,7 +2008,7 @@ iscsi_outstanding_add(struct iscsi_session *is,
 	}
 
 	error = icl_conn_task_setup(is->is_conn, &ccb->csio,
-	    initiator_task_tagp, &io->io_icl_prv);
+	    initiator_task_tagp, &io->io_icl_prv, request);
 	if (error != 0) {
 		ISCSI_SESSION_WARN(is,
 		    "icl_conn_task_setup() failed with error %d", error);
@@ -2073,7 +2073,7 @@ iscsi_action_abort(struct iscsi_session *is, union ccb *ccb)
 
 	initiator_task_tag = is->is_initiator_task_tag++;
 
-	io = iscsi_outstanding_add(is, NULL, &initiator_task_tag);
+	io = iscsi_outstanding_add(is, NULL, &initiator_task_tag, request);
 	if (io == NULL) {
 		icl_pdu_free(request);
 		ccb->ccb_h.status = CAM_RESRC_UNAVAIL;
@@ -2132,7 +2132,7 @@ iscsi_action_scsiio(struct iscsi_session *is, union ccb *ccb)
 	}
 
 	initiator_task_tag = is->is_initiator_task_tag++;
-	io = iscsi_outstanding_add(is, ccb, &initiator_task_tag);
+	io = iscsi_outstanding_add(is, ccb, &initiator_task_tag, request);
 	if (io == NULL) {
 		icl_pdu_free(request);
 		if ((ccb->ccb_h.status & CAM_DEV_QFRZN) == 0) {
