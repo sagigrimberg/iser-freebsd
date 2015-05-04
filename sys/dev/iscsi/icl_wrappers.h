@@ -114,10 +114,10 @@ icl_conn_connected(struct icl_conn *ic)
 
 static inline int
 icl_conn_task_setup(struct icl_conn *ic, struct ccb_scsiio *csio,
-    uint32_t *task_tagp, void **prvp)
+    uint32_t *task_tagp, void **prvp, struct icl_pdu *ip)
 {
 
-	return (ICL_CONN_TASK_SETUP(ic, csio, task_tagp, prvp));
+	return (ICL_CONN_TASK_SETUP(ic, csio, task_tagp, prvp, ip));
 }
 
 static inline void
