@@ -39,9 +39,10 @@
 .Fl p Ar portal Fl t Ar target
 .Op Fl u Ar user Fl s Ar secret
 .Op Fl w Ar timeout
+.Op Fl T Ar transport
 .Nm
 .Fl A
-.Fl d Ar discovery-host Op Fl u Ar user Fl s Ar secret
+.Fl d Ar discovery-host Op Fl u Ar user Fl s Ar secret Fl T Ar transport
 .Nm
 .Fl A
 .Fl a Op Fl c Ar path
@@ -119,6 +120,8 @@ Target portal - host name or address - for statically defined targets.
 CHAP secret.
 .It Fl t
 Target name.
+.It Fl T
+Transport type, can be iser or tcp (default: tcp).
 .It Fl u
 CHAP login.
 .It Fl v
