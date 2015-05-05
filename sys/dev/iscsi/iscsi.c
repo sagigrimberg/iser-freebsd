@@ -769,12 +769,6 @@ iscsi_error_callback(struct icl_conn *ic)
 
 	is = CONN_SESSION(ic);
 
-	/*
-	 * In case we terminating, don't reconnect
-	 */
-	if (is->is_terminating)
-		return;
-
 	ISCSI_SESSION_WARN(is, "connection error; reconnecting");
 	iscsi_session_reconnect(is);
 }

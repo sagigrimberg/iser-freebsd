@@ -78,11 +78,17 @@ static void iser_handle_wc(struct ib_wc *wc)
 			ISER_ERR("Unknown wc opcode %d", wc->opcode);
 		}
 	} else {
-		if (wc->status != IB_WC_WR_FLUSH_ERR)
+		if (wc->status != IB_WC_WR_FLUSH_ERR) {
+			struct iser_conn *iser_conn;
+
+			iser_conn = container_of(ib_conn, struct iser_conn, ib_conn);
+			iser_conn->icl_conn.ic_error(&iser_conn->icl_conn);
+
 			ISER_ERR("wr id %lx status %d vend_err %x",
 				 wc->wr_id, wc->status, wc->vendor_err);
-		else
+		} else {
 			ISER_DBG("flush error: wr id %lx\n", wc->wr_id);
+		}
 
 		if (wc->wr_id == ISER_BEACON_WRID) {
 			/* all flush errors were consumed */
@@ -590,6 +596,10 @@ iser_conn_terminate(struct iser_conn *iser_conn)
 
 	ISER_INFO("iser_conn %p", iser_conn);
 
+	mtx_lock(&iser_conn->state_mutex);
+	iser_conn->state = ISER_CONN_TERMINATING;
+	mtx_unlock(&iser_conn->state_mutex);
+
 	if (ib_conn->qp == NULL) {
 		/* HOW can this be??? */
 		ISER_WARN("qp wasn't created");
@@ -733,12 +743,10 @@ iser_cleanup_handler(struct rdma_cm_id *cma_id, bool destroy)
 {
 	struct iser_conn *iser_conn = cma_id->context;
 
-	if (iser_conn) {
-		mtx_lock(&iser_conn->state_mutex);
-		iser_conn->state = ISER_CONN_TERMINATING;
-		mtx_unlock(&iser_conn->state_mutex);
+	mtx_lock(&iser_conn->state_mutex);
+	if (iser_conn->state != ISER_CONN_TERMINATING)
 		iser_conn->icl_conn.ic_error(&iser_conn->icl_conn);
-	}
+	mtx_unlock(&iser_conn->state_mutex);
 };
 
 static int
