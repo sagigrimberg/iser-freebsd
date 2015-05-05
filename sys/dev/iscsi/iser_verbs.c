@@ -87,7 +87,7 @@ static void iser_handle_wc(struct ib_wc *wc)
 			ISER_ERR("wr id %lx status %d vend_err %x",
 				 wc->wr_id, wc->status, wc->vendor_err);
 		} else {
-			ISER_DBG("flush error: wr id %lx\n", wc->wr_id);
+			ISER_DBG("flush error: wr id %lx", wc->wr_id);
 		}
 
 		if (wc->wr_id == ISER_BEACON_WRID) {
