@@ -714,8 +714,7 @@ iser_route_handler(struct rdma_cm_id *cma_id)
 
 	return;
 failure:
-	/* TODO: add error flow */
-	return;
+	iser_connect_error(cma_id);
 }
 
 static void
