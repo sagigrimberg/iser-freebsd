@@ -284,7 +284,7 @@ iser_conn_close(struct icl_conn *ic)
 {
 	struct iser_conn *iser_conn = icl_to_iser_conn(ic);
 
-	ISER_INFO("closing conn %p \n", iser_conn);
+	ISER_INFO("closing conn %p", iser_conn);
 
 	iser_conn_terminate(iser_conn);
 	iser_conn_release(iser_conn);

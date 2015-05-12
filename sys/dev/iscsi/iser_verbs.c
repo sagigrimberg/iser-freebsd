@@ -641,7 +641,7 @@ iser_connect_error(struct rdma_cm_id *cma_id)
 
 	iser_conn = cma_id->context;
 
-	ISER_ERR("conn %p\n", iser_conn);
+	ISER_ERR("conn %p", iser_conn);
 
 	mtx_lock(&iser_conn->state_mutex);
 	iser_conn->state = ISER_CONN_TERMINATING;
