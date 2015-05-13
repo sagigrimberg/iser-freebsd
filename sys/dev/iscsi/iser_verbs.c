@@ -51,6 +51,57 @@ iser_event_handler(struct ib_event_handler *handler,
 }
 
 /**
+ * is_iser_tx_desc - Indicate if the completion wr_id
+ *     is a TX descriptor or not.
+ * @iser_conn: iser connection
+ * @wr_id: completion WR identifier
+ *
+ * Since we cannot rely on wc opcode in FLUSH errors
+ * we must work around it by checking if the wr_id address
+ * falls in the iser connection rx_descs buffer. If so
+ * it is an RX descriptor, otherwize it is a TX.
+ */
+static inline bool
+is_iser_tx_desc(struct iser_conn *iser_conn, void *wr_id)
+{
+	void *start = iser_conn->rx_descs;
+	u64 len = iser_conn->num_rx_descs * sizeof(*iser_conn->rx_descs);
+	void *end = (void *)((uintptr_t)start + (uintptr_t)len);
+
+	if (wr_id >= start && wr_id < end)
+		return false;
+
+	return true;
+}
+
+/**
+ * iser_handle_comp_error() - Handle error completion
+ * @ib_conn:   connection RDMA resources
+ * @wc:        work completion
+ *
+ * Notes: Update post_recv_buf_count in case of recv error completion.
+ *        For non-FLUSH error completion we should also notify iscsi layer that
+ *        connection is failed (in case we passed bind stage).
+ */
+static void
+iser_handle_comp_error(struct ib_conn *ib_conn,
+		       struct ib_wc *wc)
+{
+	void *wr_id = (void *)(uintptr_t)wc->wr_id;
+	struct iser_conn *iser_conn = container_of(ib_conn, struct iser_conn,
+						   ib_conn);
+
+	if (is_iser_tx_desc(iser_conn, wr_id)) {
+		ISER_DBG("got send comp error");
+	} else {
+		ISER_DBG("got recv comp error");
+		ib_conn->post_recv_buf_count--;
+	}
+	if (wc->status != IB_WC_WR_FLUSH_ERR)
+		iser_conn->icl_conn.ic_error(&iser_conn->icl_conn);
+}
+
+/**
  * iser_handle_wc - handle a single work completion
  * @wc: work completion
  *
@@ -79,11 +130,6 @@ static void iser_handle_wc(struct ib_wc *wc)
 		}
 	} else {
 		if (wc->status != IB_WC_WR_FLUSH_ERR) {
-			struct iser_conn *iser_conn;
-
-			iser_conn = container_of(ib_conn, struct iser_conn, ib_conn);
-			iser_conn->icl_conn.ic_error(&iser_conn->icl_conn);
-
 			ISER_ERR("wr id %lx status %d vend_err %x",
 				 wc->wr_id, wc->status, wc->vendor_err);
 		} else {
@@ -94,6 +140,8 @@ static void iser_handle_wc(struct ib_wc *wc)
 			/* all flush errors were consumed */
 			ISER_DBG("got ISER_BEACON_WRID");
 			cv_signal(&ib_conn->flush_cv);
+		} else {
+			iser_handle_comp_error(ib_conn, wc);
 		}
 	}
 }
