@@ -438,12 +438,14 @@ iser_rcv_completion(struct iser_rx_desc *rx_desc,
 
 	response = iser_new_pdu(ic, M_NOWAIT);
 	response->ip_bhs = hdr;
+	response->ip_data_len = ntoh24(hdr->bhs_data_segment_len);
 
-	/* differentiate between login to all other PDUs */
-	if ((char *)rx_desc == iser_conn->login_resp_buf) {
-		response->ip_data_len = ntoh24(hdr->bhs_data_segment_len);
+	/*
+	 * In case we got data in the receive buffer, assign the ip_data_mbuf
+	 * to the rx_buffer - later we'll copy it to upper layer buffers
+	 */
+	if (response->ip_data_len)
 		response->ip_data_mbuf = (struct mbuf *)(rx_desc->data);
-	}
 
 	ib_dma_sync_single_for_device(ib_conn->device->ib_device, rx_dma,
 				      rx_buflen, DMA_FROM_DEVICE);
