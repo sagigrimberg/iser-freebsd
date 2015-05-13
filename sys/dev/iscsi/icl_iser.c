@@ -123,7 +123,7 @@ void
 iser_conn_pdu_get_data(struct icl_conn *ic, struct icl_pdu *ip,
 		       size_t off, void *addr, size_t len)
 {
-	/* copy only in case mbuf isn't NULL - login stage */
+	/* If we have a receive data, copy it to upper layer buffer */
 	if (ip->ip_data_mbuf)
 		memcpy(addr, ip->ip_data_mbuf + off, len);
 }
