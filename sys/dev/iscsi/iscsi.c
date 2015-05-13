@@ -371,8 +371,6 @@ static void
 iscsi_maintenance_thread_reconnect(struct iscsi_session *is)
 {
 
-	icl_conn_close(is->is_conn);
-
 	ISCSI_SESSION_LOCK(is);
 
 	is->is_connected = false;
@@ -407,6 +405,7 @@ iscsi_maintenance_thread_reconnect(struct iscsi_session *is)
 	strlcpy(is->is_reason, "Waiting for iscsid(8)", sizeof(is->is_reason));
 	is->is_timeout = 0;
 	ISCSI_SESSION_UNLOCK(is);
+	icl_conn_close(is->is_conn);
 	cv_signal(&is->is_softc->sc_cv);
 }
 
@@ -420,7 +419,6 @@ iscsi_maintenance_thread_terminate(struct iscsi_session *is)
 	TAILQ_REMOVE(&sc->sc_sessions, is, is_next);
 	sx_xunlock(&sc->sc_lock);
 
-	icl_conn_close(is->is_conn);
 	callout_drain(&is->is_callout);
 
 	ISCSI_SESSION_LOCK(is);
@@ -444,6 +442,7 @@ iscsi_maintenance_thread_terminate(struct iscsi_session *is)
 
 	ISCSI_SESSION_UNLOCK(is);
 
+	icl_conn_close(is->is_conn);
 	icl_conn_free(is->is_conn);
 	mtx_destroy(&is->is_lock);
 	cv_destroy(&is->is_maintenance_cv);
