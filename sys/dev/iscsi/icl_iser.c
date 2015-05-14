@@ -94,6 +94,7 @@ iser_initialize_headers(struct icl_iser_pdu *pdu, struct iser_conn *iser_conn)
 		goto out;
 	}
 
+	tx_desc->mapped = true;
 	tx_desc->dma_addr = dma_addr;
 	tx_desc->tx_sg[0].addr   = tx_desc->dma_addr;
 	tx_desc->tx_sg[0].length = ISER_HEADERS_LEN;
@@ -205,8 +206,13 @@ iser_conn_pdu_queue(struct icl_conn *ic, struct icl_pdu *ip)
 {
 	struct iser_conn *iser_conn = icl_to_iser_conn(ic);
 	struct icl_iser_pdu *iser_pdu = icl_to_iser_pdu(ip);
+	int ret;
 
-	iser_initialize_headers(iser_pdu, iser_conn);
+	ret = iser_initialize_headers(iser_pdu, iser_conn);
+	if (ret) {
+		ISER_ERR("Failed to map TX descriptor pdu %p", iser_pdu);
+		return;
+	}
 
 	if (is_control_opcode(ip->ip_bhs->bhs_opcode))
 		iser_send_control(iser_conn, iser_pdu);
@@ -321,6 +327,8 @@ iser_conn_task_done(struct icl_conn *ic, void *prv)
 {
 	struct icl_pdu *ip = prv;
 	struct icl_iser_pdu *iser_pdu = icl_to_iser_pdu(ip);
+	struct iser_device *device = iser_pdu->iser_conn->ib_conn.device;
+	struct iser_tx_desc *tx_desc = &iser_pdu->desc;
 
 	if (iser_pdu->dir[ISER_DIR_IN]) {
 		iser_unreg_rdma_mem(iser_pdu, ISER_DIR_IN);
@@ -334,6 +342,12 @@ iser_conn_task_done(struct icl_conn *ic, void *prv)
 		iser_dma_unmap_task_data(iser_pdu,
 					 &iser_pdu->data[ISER_DIR_OUT],
 					 DMA_TO_DEVICE);
+	}
+
+	if (likely(tx_desc->mapped)) {
+		ib_dma_unmap_single(device->ib_device, tx_desc->dma_addr,
+				    ISER_HEADERS_LEN, DMA_TO_DEVICE);
+		tx_desc->mapped = false;
 	}
 
 	iser_pdu_free(ic, ip);

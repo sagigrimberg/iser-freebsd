@@ -256,6 +256,7 @@ struct iser_device;
  *                 sg[1] optionally points to either of immediate data
  *                 unsolicited data-out or control
  * @num_sge:       number sges used on this TX task
+ * @mapped:        indicates if the descriptor is dma mapped
  */
 struct iser_tx_desc {
 	struct iser_hdr              iser_header;
@@ -264,6 +265,7 @@ struct iser_tx_desc {
 	u64		             dma_addr;
 	struct ib_sge		     tx_sg[2];
 	int                          num_sge;
+	bool                         mapped;
 };
 
 #define ISER_RX_PAD_SIZE	(256 - (ISER_RX_PAYLOAD_SIZE + \
