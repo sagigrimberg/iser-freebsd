@@ -285,9 +285,8 @@ iser_csio_to_sg(struct ccb_scsiio *csio, struct iser_data_buf *data_buf)
 
 	buf = csio->data_ptr;
 	total_left = data_buf->data_len;
-	data_buf->size = DIV_ROUND_UP(csio->dxfer_len, PAGE_SIZE);
-	sg_init_table(data_buf->sgl, data_buf->size);
-	for (i = 0; i < data_buf->size; i++)  {
+
+	for (i = 0; 0 < total_left; i++)  {
 		sg = &data_buf->sgl[i];
 		offset = ((uintptr_t)buf) & ~PAGE_MASK;
 		buflen = min(PAGE_SIZE - offset, total_left);
@@ -295,6 +294,8 @@ iser_csio_to_sg(struct ccb_scsiio *csio, struct iser_data_buf *data_buf)
 		buf = (void *)(((u64)buf) + (u64)buflen);
 		total_left -= buflen;
 	}
+	data_buf->size = i;
+	sg_mark_end(sg);
 }
 
 static inline bool
