@@ -193,7 +193,7 @@ free_login_buf:
 
 out_err:
 	ISER_DBG("unable to alloc or map login buf");
-	return (-ENOMEM);
+	return (ENOMEM);
 }
 
 int iser_alloc_rx_descriptors(struct iser_conn *iser_conn, int cmds_max)
@@ -251,7 +251,7 @@ rx_desc_alloc_fail:
 create_rdma_reg_res_failed:
 	ISER_ERR("failed allocating rx descriptors / data buffers");
 
-	return (-ENOMEM);
+	return (ENOMEM);
 }
 
 void
