@@ -111,7 +111,8 @@ iser_conn_pdu_append_data(struct icl_conn *ic, struct icl_pdu *request,
 {
 	struct iser_conn *iser_conn = icl_to_iser_conn(ic);
 
-	if (request->ip_bhs->bhs_opcode & ISCSI_BHS_OPCODE_LOGIN_REQUEST) {
+	if (request->ip_bhs->bhs_opcode & ISCSI_BHS_OPCODE_LOGIN_REQUEST ||
+	    request->ip_bhs->bhs_opcode & ISCSI_BHS_OPCODE_TEXT_REQUEST) {
 		ISER_DBG("copy to login buff");
 		memcpy(iser_conn->login_req_buf, addr, len);
 		request->ip_data_len = len;
@@ -189,6 +190,7 @@ is_control_opcode(uint8_t opcode)
 		case ISCSI_BHS_OPCODE_NOP_OUT:
 		case ISCSI_BHS_OPCODE_LOGIN_REQUEST:
 		case ISCSI_BHS_OPCODE_LOGOUT_REQUEST:
+		case ISCSI_BHS_OPCODE_TEXT_REQUEST:
 			is_control = true;
 			break;
 		case ISCSI_BHS_OPCODE_SCSI_COMMAND:
