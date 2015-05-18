@@ -228,7 +228,7 @@ iser_fast_reg_mr(struct icl_iser_pdu *iser_pdu,
 				   &offset, &size);
 	if (plen * SIZE_4K < size) {
 		ISER_ERR("fast reg page_list too short to hold this SG");
-		return (-EINVAL);
+		return (EINVAL);
 	}
 
 	if (!rsc->mr_valid) {
@@ -341,7 +341,7 @@ iser_dma_map_task_data(struct icl_iser_pdu *iser_pdu,
 	data->dma_nents = ib_dma_map_sg(dev, data->sgl, data->size, dma_dir);
 	if (data->dma_nents == 0) {
 		ISER_ERR("dma_map_sg failed");
-		return (-EINVAL);
+		return (EINVAL);
 	}
 
 	return (0);

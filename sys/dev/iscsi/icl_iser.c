@@ -283,7 +283,7 @@ post_error:
 	iser_free_rx_descriptors(iser_conn);
 out:
 	ISER_ERR("fail in handoff stage");
-	return (-ENOMEM);
+	return (ENOMEM);
 
 }
 
