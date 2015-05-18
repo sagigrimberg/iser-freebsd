@@ -92,50 +92,6 @@ text_new_request(struct connection *conn)
 	return (request);
 }
 
-static struct pdu *
-logout_receive(struct connection *conn)
-{
-	struct pdu *response;
-	struct iscsi_bhs_logout_response *bhslr;
-
-	response = pdu_new(conn);
-	pdu_receive(response);
-	if (response->pdu_bhs->bhs_opcode != ISCSI_BHS_OPCODE_LOGOUT_RESPONSE)
-		log_errx(1, "protocol error: received invalid opcode 0x%x",
-		    response->pdu_bhs->bhs_opcode);
-	bhslr = (struct iscsi_bhs_logout_response *)response->pdu_bhs;
-	if (ntohs(bhslr->bhslr_response) != BHSLR_RESPONSE_CLOSED_SUCCESSFULLY)
-		log_warnx("received Logout Response with reason %d",
-		    ntohs(bhslr->bhslr_response));
-	if (ntohl(bhslr->bhslr_statsn) != conn->conn_statsn + 1) {
-		log_errx(1, "received Logout PDU with wrong StatSN: "
-		    "is %u, should be %u", ntohl(bhslr->bhslr_statsn),
-		    conn->conn_statsn + 1);
-	}
-	conn->conn_statsn = ntohl(bhslr->bhslr_statsn);
-
-	return (response);
-}
-
-static struct pdu *
-logout_new_request(struct connection *conn)
-{
-	struct pdu *request;
-	struct iscsi_bhs_logout_request *bhslr;
-
-	request = pdu_new(conn);
-	bhslr = (struct iscsi_bhs_logout_request *)request->pdu_bhs;
-	bhslr->bhslr_opcode = ISCSI_BHS_OPCODE_LOGOUT_REQUEST |
-	    ISCSI_BHS_OPCODE_IMMEDIATE;
-	bhslr->bhslr_reason = BHSLR_REASON_CLOSE_SESSION;
-	bhslr->bhslr_reason |= 0x80;
-	bhslr->bhslr_initiator_task_tag = 0; /* XXX */
-	bhslr->bhslr_cmdsn = 0; /* XXX */
-	bhslr->bhslr_expstatsn = htonl(conn->conn_statsn + 1);
-
-	return (request);
-}
-
 static void
 kernel_add(const struct connection *conn, const char *target)
 {
@@ -152,7 +108,7 @@ kernel_add(const struct connection *conn, const char *target)
 		log_warn("failed to add %s: ISCSISADD", target);
 }
 
-static void
+void
 kernel_remove(const struct connection *conn)
 {
 	struct iscsi_session_remove isr;
@@ -202,19 +158,6 @@ discovery(struct connection *conn)
 	}
 	keys_delete(response_keys);
 	pdu_delete(response);
-
-	log_debugx("discovery done; logging out");
-	request = logout_new_request(conn);
-	pdu_send(request);
-	pdu_delete(request);
-	request = NULL;
-
-	log_debugx("waiting for Logout Response");
-	response = logout_receive(conn);
-	pdu_delete(response);
-
-	log_debugx("removing temporary discovery session");
-	kernel_remove(conn);
 
 	log_debugx("discovery session done");
 }
