@@ -68,8 +68,12 @@ is_iser_tx_desc(struct iser_conn *iser_conn, void *wr_id)
 	u64 len = iser_conn->num_rx_descs * sizeof(*iser_conn->rx_descs);
 	void *end = (void *)((uintptr_t)start + (uintptr_t)len);
 
-	if (wr_id >= start && wr_id < end)
-		return false;
+	if (start) {
+		if (wr_id >= start && wr_id < end)
+			return false;
+	} else {
+		return ((uintptr_t)wr_id != (uintptr_t)iser_conn->login_resp_buf);
+	}
 
 	return true;
 }

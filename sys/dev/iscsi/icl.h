@@ -119,6 +119,8 @@ struct icl_conn {
 
 	void			(*ic_receive)(struct icl_pdu *);
 	void			(*ic_error)(struct icl_conn *);
+	bool			(*ic_session_type_discovery)(struct icl_conn *);
+	bool			(*ic_session_login_phase)(struct icl_conn *);
 
 	/*
 	 * User (initiator or provider) private fields.
