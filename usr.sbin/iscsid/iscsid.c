@@ -444,8 +444,9 @@ handle_request(int iscsi_fd, const struct iscsi_daemon_request *request, int tim
 	login(conn);
 	if (conn->conn_conf.isc_discovery != 0)
 		discovery(conn);
-	else
-		handoff(conn);
+	handoff(conn);
+	if (conn->conn_conf.isc_discovery != 0)
+		kernel_remove(conn);
 
 	log_debugx("nothing more to do; exiting");
 	exit (0);
