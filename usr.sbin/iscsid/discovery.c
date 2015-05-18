@@ -203,9 +203,6 @@ discovery(struct connection *conn)
 	keys_delete(response_keys);
 	pdu_delete(response);
 
-	log_debugx("removing temporary discovery session");
-	kernel_remove(conn);
-
 	log_debugx("discovery done; logging out");
 	request = logout_new_request(conn);
 	pdu_send(request);
@@ -215,6 +212,9 @@ discovery(struct connection *conn)
 	log_debugx("waiting for Logout Response");
 	response = logout_receive(conn);
 	pdu_delete(response);
+
+	log_debugx("removing temporary discovery session");
+	kernel_remove(conn);
 
 	log_debugx("discovery session done");
 }
