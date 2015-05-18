@@ -361,7 +361,7 @@ iser_send_control(struct iser_conn *iser_conn,
 	struct iser_tx_desc *mdesc;
 	struct iser_device *device;
 	size_t datalen = iser_pdu->icl_pdu.ip_data_len;
-	bool login = false;
+	struct icl_conn *ic = &iser_conn->icl_conn;
 	int err;
 
 	mdesc = &iser_pdu->desc;
@@ -386,10 +386,10 @@ iser_send_control(struct iser_conn *iser_conn,
 		tx_dsg->length  = datalen;
 		tx_dsg->lkey    = device->mr->lkey;
 		mdesc->num_sge = 2;
-		login = true;
 	}
 
-	if (login) {
+	/* For discovery session we re-use the login buffer */
+	if (ic->ic_session_login_phase(ic) || ic->ic_session_type_discovery(ic)) {
 		err = iser_post_recvl(iser_conn);
 		if (err)
 			goto send_control_error;

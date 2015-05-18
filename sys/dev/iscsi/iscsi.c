@@ -761,6 +761,26 @@ iscsi_receive_callback(struct icl_pdu *response)
 	}
 }
 
+static bool
+iscsi_session_login_phase(struct icl_conn *ic)
+{
+	struct iscsi_session *is;
+
+	is = CONN_SESSION(ic);
+
+	return is->is_login_phase;
+}
+
+static bool
+iscsi_session_type_discovery(struct icl_conn *ic)
+{
+	struct iscsi_session *is;
+
+	is = CONN_SESSION(ic);
+
+	return is->is_conf.isc_discovery;
+}
+
 static void
 iscsi_error_callback(struct icl_conn *ic)
 {
@@ -1766,6 +1786,8 @@ iscsi_ioctl_session_add(struct iscsi_softc *sc, struct iscsi_session_add *isa)
 	}
 	is->is_conn->ic_receive = iscsi_receive_callback;
 	is->is_conn->ic_error = iscsi_error_callback;
+	is->is_conn->ic_session_type_discovery = iscsi_session_type_discovery;
+	is->is_conn->ic_session_login_phase = iscsi_session_login_phase;
 	is->is_conn->ic_prv0 = is;
 	TAILQ_INIT(&is->is_outstanding);
 	STAILQ_INIT(&is->is_postponed);
