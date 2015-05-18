@@ -206,7 +206,7 @@ iser_create_device_ib_res(struct iser_device *device)
 	if (!(dev_attr->device_cap_flags & IB_DEVICE_MEM_MGT_EXTENSIONS)) {
 		ISER_ERR("device %s doesn't support Fastreg, "
 			 "can't register memory", device->ib_device->name);
-		return (-1);
+		return (1);
 	}
 	
 	device->comps_used = min(mp_ncpus, device->ib_device->num_comp_vectors);
@@ -278,7 +278,7 @@ pd_err:
 	free(device->comps, M_ISER_VERBS);
 comps_err:
 	ISER_ERR("failed to allocate an IB resource");
-	return (-1);
+	return (1);
 }
 
 /**
@@ -319,14 +319,14 @@ iser_alloc_reg_res(struct ib_device *ib_device,
 	res->frpl = ib_alloc_fast_reg_page_list(ib_device,
 						ISCSI_ISER_SG_TABLESIZE + 1);
 	if (IS_ERR(res->frpl)) {
-		ret = PTR_ERR(res->frpl);
+		ret = -PTR_ERR(res->frpl);
 		ISER_ERR("Failed to allocate fast reg page list err=%d", ret);
-		return PTR_ERR(res->frpl);
+		return (ret);
 	}
 
 	res->mr = ib_alloc_fast_reg_mr(pd, ISCSI_ISER_SG_TABLESIZE + 1);
 	if (IS_ERR(res->mr)) {
-		ret = PTR_ERR(res->mr);
+		ret = -PTR_ERR(res->mr);
 		ISER_ERR("Failed to allocate  fast reg mr err=%d", ret);
 		goto fast_reg_mr_failure;
 	}
@@ -356,7 +356,7 @@ iser_create_fastreg_desc(struct ib_device *ib_device, struct ib_pd *pd)
 	desc = malloc(sizeof(*desc), M_ISER_VERBS, M_WAITOK | M_ZERO);
 	if (!desc) {
 		ISER_ERR("Failed to allocate a new fastreg descriptor");
-		return ERR_PTR(-ENOMEM);
+		return (NULL);
 	}
 
 	ret = iser_alloc_reg_res(ib_device, pd, &desc->rsc);
@@ -368,7 +368,7 @@ iser_create_fastreg_desc(struct ib_device *ib_device, struct ib_pd *pd)
 	return (desc);
 err:
 	free(desc, M_ISER_VERBS);
-	return ERR_PTR(ret);
+	return (NULL);
 }
 
 /**
@@ -381,16 +381,14 @@ iser_create_fastreg_pool(struct ib_conn *ib_conn, unsigned cmds_max)
 {
 	struct iser_device *device = ib_conn->device;
 	struct fast_reg_descriptor *desc;
-	int i, ret;
+	int i;
 
 	INIT_LIST_HEAD(&ib_conn->fastreg.pool);
 	ib_conn->fastreg.pool_size = 0;
 	for (i = 0; i < cmds_max; i++) {
 		desc = iser_create_fastreg_desc(device->ib_device, device->pd);
-		if (IS_ERR(desc)) {
-			ret = PTR_ERR(desc);
-			ISER_ERR("Failed to create fastreg descriptor err=%d",
-				 ret);
+		if (!desc) {
+			ISER_ERR("Failed to create fastreg descriptor");
 			goto err;
 		}
 
@@ -402,7 +400,7 @@ iser_create_fastreg_pool(struct ib_conn *ib_conn, unsigned cmds_max)
 
 err:
 	iser_free_fastreg_pool(ib_conn);
-	return (ret);
+	return (ENOMEM);
 }
 
 /**
@@ -434,7 +432,7 @@ iser_free_fastreg_pool(struct ib_conn *ib_conn)
 /**
  * iser_create_ib_conn_res - Queue-Pair (QP)
  *
- * returns 0 on success, -1 on failure
+ * returns 0 on success, 1 on failure
  */
 static int
 iser_create_ib_conn_res(struct ib_conn *ib_conn)
@@ -861,7 +859,7 @@ iser_conn_connect(struct icl_conn *ic, int domain, int socktype,
 	ib_conn->cma_id = rdma_create_id(iser_cma_handler, (void *)iser_conn,
 			RDMA_PS_TCP, IB_QPT_RC);
 	if (IS_ERR(ib_conn->cma_id)) {
-		err = PTR_ERR(ib_conn->cma_id);
+		err = -PTR_ERR(ib_conn->cma_id);
 		ISER_ERR("rdma_create_id failed: %d", err);
 		goto id_failure;
 	}
@@ -869,6 +867,8 @@ iser_conn_connect(struct icl_conn *ic, int domain, int socktype,
 	err = rdma_resolve_addr(ib_conn->cma_id, from_sa, to_sa, 1000);
 	if (err) {
 		ISER_ERR("rdma_resolve_addr failed: %d", err);
+		if (err < 0)
+			err = -err;
 		goto addr_failure;
 	}
 
@@ -880,7 +880,7 @@ iser_conn_connect(struct icl_conn *ic, int domain, int socktype,
 
 	mtx_lock(&iser_conn->state_mutex);
 	if (iser_conn->state != ISER_CONN_UP) {
-		err =  -EIO;
+		err = EIO;
 		mtx_unlock(&iser_conn->state_mutex);
 		goto addr_failure;
 	}
