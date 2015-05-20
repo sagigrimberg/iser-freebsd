@@ -854,7 +854,8 @@ iser_conn_connect(struct icl_conn *ic, int domain, int socktype,
 	ib_conn->beacon.wr_id = ISER_BEACON_WRID;
 	ib_conn->beacon.opcode = IB_WR_SEND;
 
-	ib_conn->cma_id = rdma_create_id(iser_cma_handler, (void *)iser_conn, RDMA_PS_TCP);
+	ib_conn->cma_id = rdma_create_id(iser_cma_handler, (void *)iser_conn,
+			RDMA_PS_TCP, IB_QPT_RC);
 	if (IS_ERR(ib_conn->cma_id)) {
 		err = PTR_ERR(ib_conn->cma_id);
 		ISER_ERR("rdma_create_id failed: %d", err);
