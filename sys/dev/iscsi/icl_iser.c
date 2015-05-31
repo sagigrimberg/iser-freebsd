@@ -271,6 +271,13 @@ iser_conn_handoff(struct icl_conn *ic, int cmds_max)
 {
 	struct iser_conn *iser_conn = icl_to_iser_conn(ic);
 
+	/*
+	 * In discovery session no need to allocate rx desc and posting recv
+	 * work request
+	 */
+	if (ic->ic_session_type_discovery(ic))
+		return (0);
+
 	if (iser_alloc_rx_descriptors(iser_conn, cmds_max))
 		goto out;
 
