@@ -132,7 +132,6 @@ void			pdu_delete(struct pdu *ip);
 void			login(struct connection *ic);
 
 void			discovery(struct connection *ic);
-void			kernel_remove(const struct connection *ic);
 
 void			log_init(int level);
 void			log_set_peer_name(const char *name);

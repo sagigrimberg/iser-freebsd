@@ -92,9 +92,6 @@ SYSCTL_INT(_kern_iscsi, OID_AUTO, iscsid_timeout, CTLFLAG_RWTUN, &iscsid_timeout
 static int login_timeout = 60;
 SYSCTL_INT(_kern_iscsi, OID_AUTO, login_timeout, CTLFLAG_RWTUN, &login_timeout,
     0, "Time to wait for iscsid(8) to finish Login Phase, in seconds");
-static int logout_timeout = 5;
-SYSCTL_INT(_kern_iscsi, OID_AUTO, logout_timeout, CTLFLAG_RWTUN, &logout_timeout,
-    0, "Time to wait for logout response, in seconds");
 static int maxtags = 255;
 SYSCTL_INT(_kern_iscsi, OID_AUTO, maxtags, CTLFLAG_RWTUN, &maxtags,
     0, "Max number of IO requests queued");
@@ -161,7 +158,6 @@ static void	iscsi_pdu_handle_nop_in(struct icl_pdu *response);
 static void	iscsi_pdu_handle_scsi_response(struct icl_pdu *response);
 static void	iscsi_pdu_handle_task_response(struct icl_pdu *response);
 static void	iscsi_pdu_handle_data_in(struct icl_pdu *response);
-static void	iscsi_pdu_handle_login_response(struct icl_pdu *response);
 static void	iscsi_pdu_handle_logout_response(struct icl_pdu *response);
 static void	iscsi_pdu_handle_r2t(struct icl_pdu *response);
 static void	iscsi_pdu_handle_async_message(struct icl_pdu *response);
@@ -280,10 +276,7 @@ iscsi_session_logout(struct iscsi_session *is)
 
 	bhslr = (struct iscsi_bhs_logout_request *)request->ip_bhs;
 	bhslr->bhslr_opcode = ISCSI_BHS_OPCODE_LOGOUT_REQUEST;
-	bhslr->bhslr_opcode |= ISCSI_BHS_OPCODE_IMMEDIATE;
 	bhslr->bhslr_reason = BHSLR_REASON_CLOSE_SESSION;
-	bhslr->bhslr_reason |= 0x80;
-
 	iscsi_pdu_queue_locked(request);
 }
 
@@ -453,7 +446,6 @@ iscsi_maintenance_thread_terminate(struct iscsi_session *is)
 	icl_conn_free(is->is_conn);
 	mtx_destroy(&is->is_lock);
 	cv_destroy(&is->is_maintenance_cv);
-	cv_destroy(&is->is_logout_cv);
 #ifdef ICL_KERNEL_PROXY
 	cv_destroy(&is->is_login_cv);
 #endif
@@ -706,9 +698,19 @@ iscsi_receive_callback(struct icl_pdu *response)
 
 	ISCSI_SESSION_LOCK(is);
 
-	/* In login phase the statsn is updated in user space */
-	if (!is->is_login_phase)
-		iscsi_pdu_update_statsn(response);
+#ifdef ICL_KERNEL_PROXY
+	if (is->is_login_phase) {
+		if (is->is_login_pdu == NULL)
+			is->is_login_pdu = response;
+		else
+			icl_pdu_free(response);
+		ISCSI_SESSION_UNLOCK(is);
+		cv_signal(&is->is_login_cv);
+		return;
+	}
+#endif
+
+	iscsi_pdu_update_statsn(response);
 	
 	/*
 	 * The handling routine is responsible for freeing the PDU
@@ -724,12 +726,6 @@ iscsi_receive_callback(struct icl_pdu *response)
 		/* Session lock dropped inside. */
 		ISCSI_SESSION_LOCK_ASSERT_NOT(is);
 		break;
-	case ISCSI_BHS_OPCODE_TEXT_RESPONSE: /* FALLTHRU */
-	case ISCSI_BHS_OPCODE_LOGIN_RESPONSE:
-		iscsi_pdu_handle_login_response(response);
-		/* Session lock dropped inside. */
-		ISCSI_SESSION_LOCK_ASSERT_NOT(is);
-		break;
 	case ISCSI_BHS_OPCODE_TASK_RESPONSE:
 		iscsi_pdu_handle_task_response(response);
 		ISCSI_SESSION_UNLOCK(is);
@@ -741,8 +737,7 @@ iscsi_receive_callback(struct icl_pdu *response)
 		break;
 	case ISCSI_BHS_OPCODE_LOGOUT_RESPONSE:
 		iscsi_pdu_handle_logout_response(response);
-		/* Session lock dropped inside. */
-		ISCSI_SESSION_LOCK_ASSERT_NOT(is);
+		ISCSI_SESSION_UNLOCK(is);
 		break;
 	case ISCSI_BHS_OPCODE_R2T:
 		iscsi_pdu_handle_r2t(response);
@@ -1132,35 +1127,11 @@ iscsi_pdu_handle_data_in(struct icl_pdu *response)
 }
 
 static void
-iscsi_pdu_handle_login_response(struct icl_pdu *response)
-{
-	struct iscsi_session *is = PDU_SESSION(response);
-
-	if (is->is_login_pdu == NULL)
-		is->is_login_pdu = response;
-	else
-		/* Can this really happen ? */
-		icl_pdu_free(response);
-
-	ISCSI_SESSION_UNLOCK(is);
-	cv_signal(&is->is_login_cv);
-}
-
-static void
 iscsi_pdu_handle_logout_response(struct icl_pdu *response)
 {
-	struct iscsi_session *is = PDU_SESSION(response);
-	struct iscsi_bhs_logout_response *bhslr;
 
-	ISCSI_SESSION_DEBUG(is, "logout response");
-
-	bhslr = (struct iscsi_bhs_logout_response *)response->ip_bhs;
-	if (ntohs(bhslr->bhslr_response) != BHSLR_RESPONSE_CLOSED_SUCCESSFULLY)
-		ISCSI_SESSION_WARN(is, "received Logout Response with reason %d",
-				ntohs(bhslr->bhslr_response));
+	ISCSI_SESSION_DEBUG(PDU_SESSION(response), "logout response");
 	icl_pdu_free(response);
-	ISCSI_SESSION_UNLOCK(is);
-	cv_signal(&is->is_logout_cv);
 }
 
 static void
@@ -1294,7 +1265,6 @@ iscsi_pdu_handle_async_message(struct icl_pdu *response)
 	switch (bhsam->bhsam_async_event) {
 	case BHSAM_EVENT_TARGET_REQUESTS_LOGOUT:
 		ISCSI_SESSION_WARN(is, "target requests logout; removing session");
-		/* TODO: send logout response instead of request */
 		iscsi_session_logout(is);
 		iscsi_session_terminate(is);
 		break;
@@ -1406,7 +1376,7 @@ iscsi_ioctl_daemon_handoff(struct iscsi_softc *sc,
 		return (ESRCH);
 	}
 	ISCSI_SESSION_LOCK(is);
-	if (is->is_terminating) {
+	if (is->is_conf.isc_discovery || is->is_terminating) {
 		ISCSI_SESSION_UNLOCK(is);
 		sx_sunlock(&sc->sc_lock);
 		return (EINVAL);
@@ -1474,10 +1444,6 @@ iscsi_ioctl_daemon_handoff(struct iscsi_softc *sc,
 	}
 
 	sx_sunlock(&sc->sc_lock);
-
-	/* Don't create sim in discovery session */
-	if (is->is_conf.isc_discovery)
-		return (0);
 
 	if (is->is_sim != NULL) {
 		/*
@@ -1827,7 +1793,6 @@ iscsi_ioctl_session_add(struct iscsi_softc *sc, struct iscsi_session_add *isa)
 	STAILQ_INIT(&is->is_postponed);
 	mtx_init(&is->is_lock, "iscsi_lock", NULL, MTX_DEF);
 	cv_init(&is->is_maintenance_cv, "iscsi_mt");
-	cv_init(&is->is_logout_cv, "iscsi_logout");
 #ifdef ICL_KERNEL_PROXY
 	cv_init(&is->is_login_cv, "iscsi_login");
 #endif
@@ -1886,7 +1851,6 @@ iscsi_ioctl_session_remove(struct iscsi_softc *sc,
 {
 	struct iscsi_session *is, *tmp;
 	bool found = false;
-	int ret;
 
 	iscsi_sanitize_session_conf(&isr->isr_conf);
 
@@ -1896,15 +1860,8 @@ iscsi_ioctl_session_remove(struct iscsi_softc *sc,
 		if (iscsi_session_conf_matches(is->is_id, &is->is_conf,
 		    isr->isr_session_id, &isr->isr_conf)) {
 			found = true;
-			if (icl_conn_connected(is->is_conn)) {
+			if (icl_conn_connected(is->is_conn))
 				iscsi_session_logout(is);
-				/* Wait logout_timeout secs to logout response */
-				ret = cv_timedwait(&is->is_logout_cv, &is->is_lock,
-						logout_timeout*hz);
-				if (ret)
-					ISCSI_SESSION_WARN(is, "logout response didn't arrive after "
-						"%d seconds; terminating session", logout_timeout);
-			}
 			iscsi_session_terminate(is);
 		}
 		ISCSI_SESSION_UNLOCK(is);

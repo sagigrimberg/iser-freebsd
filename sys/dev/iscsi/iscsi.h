@@ -111,7 +111,6 @@ struct iscsi_session {
 	struct cam_sim			*is_sim;
 	struct cam_path			*is_path;
 	struct cv			is_maintenance_cv;
-	struct cv			is_logout_cv;
 	struct iscsi_softc		*is_softc;
 	unsigned int			is_id;
 	struct iscsi_session_conf	is_conf;
