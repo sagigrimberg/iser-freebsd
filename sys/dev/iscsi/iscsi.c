@@ -2481,3 +2481,4 @@ moduledata_t iscsi_data = {
 DECLARE_MODULE(iscsi, iscsi_data, SI_SUB_DRIVERS, SI_ORDER_MIDDLE);
 MODULE_DEPEND(iscsi, cam, 1, 1, 1);
 MODULE_DEPEND(iscsi, icl, 1, 1, 1);
+MODULE_VERSION(iscsi, 1);
