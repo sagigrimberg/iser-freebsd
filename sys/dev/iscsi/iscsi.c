@@ -1572,7 +1572,7 @@ iscsi_ioctl_daemon_connect(struct iscsi_softc *sc,
 	is->is_timeout = 0;
 	ISCSI_SESSION_UNLOCK(is);
 
-	error = icl_conn_connect(is->is_conn, idc->idc_iser, idc->idc_domain,
+	error = icl_conn_connect(is->is_conn, idc->idc_domain,
 	    idc->idc_socktype, idc->idc_protocol, from_sa, to_sa);
 	free(from_sa, M_SONAME);
 	free(to_sa, M_SONAME);

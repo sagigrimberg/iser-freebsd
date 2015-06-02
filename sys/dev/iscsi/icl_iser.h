@@ -514,4 +514,7 @@ void
 iser_dma_unmap_task_data(struct icl_iser_pdu *, struct iser_data_buf *,
 			 enum dma_data_direction);
 
+int
+iser_cma_handler(struct rdma_cm_id *, struct rdma_cm_event *);
+
 #endif /* !ICL_ISER_H */

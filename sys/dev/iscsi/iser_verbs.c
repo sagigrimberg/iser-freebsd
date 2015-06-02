@@ -798,7 +798,7 @@ iser_cleanup_handler(struct rdma_cm_id *cma_id, bool destroy)
 	mtx_unlock(&iser_conn->state_mutex);
 };
 
-static int
+int
 iser_cma_handler(struct rdma_cm_id *cma_id, struct rdma_cm_event *event)
 {
 	struct iser_conn *iser_conn;
@@ -836,70 +836,6 @@ iser_cma_handler(struct rdma_cm_id *cma_id, struct rdma_cm_event *event)
 	}
 
 	return (ret);
-}
-
-int
-iser_conn_connect(struct icl_conn *ic, int domain, int socktype,
-		int protocol, struct sockaddr *from_sa, struct sockaddr *to_sa)
-{
-	struct iser_conn *iser_conn = icl_to_iser_conn(ic);
-	struct ib_conn *ib_conn = &iser_conn->ib_conn;
-	int err = 0;
-
-	 /* the device is known only --after-- address resolution */
-	ib_conn->device = NULL;
-
-	mtx_lock(&iser_conn->state_mutex);
-	iser_conn->state = ISER_CONN_PENDING;
-	mtx_unlock(&iser_conn->state_mutex);
-
-	ib_conn->beacon.wr_id = ISER_BEACON_WRID;
-	ib_conn->beacon.opcode = IB_WR_SEND;
-
-	ib_conn->cma_id = rdma_create_id(iser_cma_handler, (void *)iser_conn,
-			RDMA_PS_TCP, IB_QPT_RC);
-	if (IS_ERR(ib_conn->cma_id)) {
-		err = -PTR_ERR(ib_conn->cma_id);
-		ISER_ERR("rdma_create_id failed: %d", err);
-		goto id_failure;
-	}
-
-	err = rdma_resolve_addr(ib_conn->cma_id, from_sa, to_sa, 1000);
-	if (err) {
-		ISER_ERR("rdma_resolve_addr failed: %d", err);
-		if (err < 0)
-			err = -err;
-		goto addr_failure;
-	}
-
-	ISER_DBG("before cv_wait: %p", iser_conn);
-	mtx_lock(&iser_conn->up_lock);
-	cv_wait(&iser_conn->up_cv, &iser_conn->up_lock);
-	mtx_unlock(&iser_conn->up_lock);
-	ISER_DBG("after cv_wait: %p", iser_conn);
-
-	mtx_lock(&iser_conn->state_mutex);
-	if (iser_conn->state != ISER_CONN_UP) {
-		err = EIO;
-		mtx_unlock(&iser_conn->state_mutex);
-		goto addr_failure;
-	}
-	mtx_unlock(&iser_conn->state_mutex);
-
-	err = iser_alloc_login_buf(iser_conn);
-	if (err)
-		goto addr_failure;
-
-	mtx_lock(&ig.connlist_mutex);
-	list_add(&iser_conn->conn_list, &ig.connlist);
-	mtx_unlock(&ig.connlist_mutex);
-
-	return (0);
-
-id_failure:
-	ib_conn->cma_id = NULL;
-addr_failure:
-	return (err);
 }
 
 int

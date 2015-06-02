@@ -82,6 +82,15 @@ METHOD void close {
 	struct icl_conn *_ic;
 };
 
+METHOD int connect {
+	struct icl_conn *_ic;
+	int _domain;
+	int _socktype;
+	int _protocol;
+	struct sockaddr *_from_sa;
+	struct sockaddr *_to_sa;
+};
+
 METHOD bool connected {
 	struct icl_conn *_ic;
 };
