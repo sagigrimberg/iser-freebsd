@@ -75,6 +75,9 @@ main()
 		cmd="make -C $PWD/sys/modules/iscsi -m $SHARE SYSDIR=$SYSDIR all install clean cleandepend"
 		echo $cmd
 		$cmd
+		cmd="make -C $PWD/sys/modules/iser -m $SHARE SYSDIR=$SYSDIR all install clean cleandepend"
+		echo $cmd
+		$cmd
 		restore_icl_conn_if
 	fi
 
