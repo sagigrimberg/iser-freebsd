@@ -544,6 +544,11 @@ main(int argc, char **argv)
 	if (iscsi_fd < 0)
 		log_err(1, "failed to open %s", ISCSI_PATH);
 
+	/* try to load iser module */
+	retval = kldload("iser");
+	if (retval == -1)
+		log_warn("can't load iser");
+
 	if (dont_daemonize == false) {
 		if (daemon(0, 0) == -1) {
 			log_warn("cannot daemonize");
