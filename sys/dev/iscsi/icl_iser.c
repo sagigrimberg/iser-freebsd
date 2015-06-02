@@ -45,6 +45,7 @@ static icl_conn_pdu_queue_t	iser_conn_pdu_queue;
 static icl_conn_handoff_t	iser_conn_handoff;
 static icl_conn_free_t		iser_conn_free;
 static icl_conn_close_t		iser_conn_close;
+static icl_conn_connect_t	iser_conn_connect;
 static icl_conn_connected_t	iser_conn_connected;
 static icl_conn_task_setup_t	iser_conn_task_setup;
 static icl_conn_task_done_t	iser_conn_task_done;
@@ -59,6 +60,7 @@ static kobj_method_t icl_iser_methods[] = {
 	KOBJMETHOD(icl_conn_handoff, iser_conn_handoff),
 	KOBJMETHOD(icl_conn_free, iser_conn_free),
 	KOBJMETHOD(icl_conn_close, iser_conn_close),
+	KOBJMETHOD(icl_conn_connect, iser_conn_connect),
 	KOBJMETHOD(icl_conn_connected, iser_conn_connected),
 	KOBJMETHOD(icl_conn_task_setup, iser_conn_task_setup),
 	KOBJMETHOD(icl_conn_task_done, iser_conn_task_done),
@@ -248,6 +250,7 @@ iser_new_conn(const char *name, struct mtx *lock)
 	ic->ic_lock = lock;
 	ic->ic_name = name;
 	ic->ic_driver = strdup("iser", M_TEMP);
+	ic->ic_iser = true;
 
 	return (ic);
 }
@@ -304,6 +307,70 @@ iser_conn_close(struct icl_conn *ic)
 	iser_conn_terminate(iser_conn);
 	iser_conn_release(iser_conn);
 
+}
+
+int
+iser_conn_connect(struct icl_conn *ic, int domain, int socktype,
+		int protocol, struct sockaddr *from_sa, struct sockaddr *to_sa)
+{
+	struct iser_conn *iser_conn = icl_to_iser_conn(ic);
+	struct ib_conn *ib_conn = &iser_conn->ib_conn;
+	int err = 0;
+
+	 /* the device is known only --after-- address resolution */
+	ib_conn->device = NULL;
+
+	mtx_lock(&iser_conn->state_mutex);
+	iser_conn->state = ISER_CONN_PENDING;
+	mtx_unlock(&iser_conn->state_mutex);
+
+	ib_conn->beacon.wr_id = ISER_BEACON_WRID;
+	ib_conn->beacon.opcode = IB_WR_SEND;
+
+	ib_conn->cma_id = rdma_create_id(iser_cma_handler, (void *)iser_conn,
+			RDMA_PS_TCP, IB_QPT_RC);
+	if (IS_ERR(ib_conn->cma_id)) {
+		err = -PTR_ERR(ib_conn->cma_id);
+		ISER_ERR("rdma_create_id failed: %d", err);
+		goto id_failure;
+	}
+
+	err = rdma_resolve_addr(ib_conn->cma_id, from_sa, to_sa, 1000);
+	if (err) {
+		ISER_ERR("rdma_resolve_addr failed: %d", err);
+		if (err < 0)
+			err = -err;
+		goto addr_failure;
+	}
+
+	ISER_DBG("before cv_wait: %p", iser_conn);
+	mtx_lock(&iser_conn->up_lock);
+	cv_wait(&iser_conn->up_cv, &iser_conn->up_lock);
+	mtx_unlock(&iser_conn->up_lock);
+	ISER_DBG("after cv_wait: %p", iser_conn);
+
+	mtx_lock(&iser_conn->state_mutex);
+	if (iser_conn->state != ISER_CONN_UP) {
+		err = EIO;
+		mtx_unlock(&iser_conn->state_mutex);
+		goto addr_failure;
+	}
+	mtx_unlock(&iser_conn->state_mutex);
+
+	err = iser_alloc_login_buf(iser_conn);
+	if (err)
+		goto addr_failure;
+
+	mtx_lock(&ig.connlist_mutex);
+	list_add(&iser_conn->conn_list, &ig.connlist);
+	mtx_unlock(&ig.connlist_mutex);
+
+	return (0);
+
+id_failure:
+	ib_conn->cma_id = NULL;
+addr_failure:
+	return (err);
 }
 
 bool

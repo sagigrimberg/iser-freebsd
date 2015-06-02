@@ -97,6 +97,7 @@ static icl_conn_pdu_queue_t	icl_soft_conn_pdu_queue;
 static icl_conn_handoff_t	icl_soft_conn_handoff;
 static icl_conn_free_t		icl_soft_conn_free;
 static icl_conn_close_t		icl_soft_conn_close;
+static icl_conn_connect_t	icl_soft_conn_connect;
 static icl_conn_connected_t	icl_soft_conn_connected;
 static icl_conn_task_setup_t	icl_soft_conn_task_setup;
 static icl_conn_task_done_t	icl_soft_conn_task_done;
@@ -114,6 +115,7 @@ static kobj_method_t icl_soft_methods[] = {
 	KOBJMETHOD(icl_conn_handoff, icl_soft_conn_handoff),
 	KOBJMETHOD(icl_conn_free, icl_soft_conn_free),
 	KOBJMETHOD(icl_conn_close, icl_soft_conn_close),
+	KOBJMETHOD(icl_conn_connect, icl_soft_conn_connect),
 	KOBJMETHOD(icl_conn_connected, icl_soft_conn_connected),
 	KOBJMETHOD(icl_conn_task_setup, icl_soft_conn_task_setup),
 	KOBJMETHOD(icl_conn_task_done, icl_soft_conn_task_done),
@@ -1475,6 +1477,14 @@ icl_soft_limits(size_t *limitp)
 }
 
 #ifdef ICL_KERNEL_PROXY
+int
+icl_soft_conn_connect(struct icl_conn *ic, int domain, int socktype,
+	int protocol, struct sockaddr *from_sa, struct sockaddr *to_sa)
+{
+	return (icl_conn_connect_tcp(ic, domain, socktype, protocol,
+			from_sa, to_sa));
+}
+
 int
 icl_conn_handoff_sock(struct icl_conn *ic, struct socket *so)
 {
