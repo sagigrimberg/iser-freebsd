@@ -504,6 +504,7 @@ moduledata_t icl_iser_data = {
 
 DECLARE_MODULE(icl_iser, icl_iser_data, SI_SUB_DRIVERS, SI_ORDER_MIDDLE);
 MODULE_DEPEND(icl_iser, icl, 1, 1, 1);
+MODULE_DEPEND(icl_iser, iscsi, 1, 1, 1);
 MODULE_DEPEND(icl_iser, ibcore, 1, 1, 1);
 MODULE_DEPEND(icl_iser, linuxapi, 1, 1, 1);
 MODULE_VERSION(icl_iser, 1);

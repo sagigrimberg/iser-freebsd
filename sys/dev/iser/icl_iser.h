@@ -63,8 +63,6 @@
 #include <rdma/ib_fmr_pool.h>
 #include <rdma/rdma_cm.h>
 
-#include "icl.h"
-#include "iscsi_proto.h"
 
 #define	ISER_DBG(X, ...)						\
 	do {								\
@@ -84,7 +82,7 @@
 	do {								\
 		if (unlikely(iser_debug > 0)) {				\
 			printf("WARNING: %s: " X "\n",			\
-			    	__func__, ## __VA_ARGS__);		\
+				__func__, ## __VA_ARGS__);		\
 		}							\
 	} while (0)
 

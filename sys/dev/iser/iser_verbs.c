@@ -196,7 +196,7 @@ iser_create_device_ib_res(struct iser_device *device)
 {
 	struct ib_device_attr *dev_attr = &device->dev_attr;
 	int ret, i, max_cqe;
-	
+
 	ret = ib_query_device(device->ib_device, dev_attr);
 	if (ret) {
 		ISER_ERR("Query device failed for %s", device->ib_device->name);
@@ -208,7 +208,7 @@ iser_create_device_ib_res(struct iser_device *device)
 			 "can't register memory", device->ib_device->name);
 		return (1);
 	}
-	
+
 	device->comps_used = min(mp_ncpus, device->ib_device->num_comp_vectors);
 
 	device->comps = malloc(device->comps_used * sizeof(*device->comps),
