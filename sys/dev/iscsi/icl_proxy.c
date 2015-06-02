@@ -89,18 +89,12 @@ __FBSDID("$FreeBSD$");
 
 static MALLOC_DEFINE(M_ICL_PROXY, "ICL_PROXY", "iSCSI common layer proxy");
 
-static int
-icl_conn_connect_rdma(struct icl_conn *ic, int domain, int socktype,
-    int protocol, struct sockaddr *from_sa, struct sockaddr *to_sa)
-{
-	return (iser_conn_connect(ic, domain, socktype, protocol, from_sa, to_sa));
-}
 #ifdef ICL_RDMA
 static int	icl_listen_add_rdma(struct icl_listen *il, int domain, int socktype, int protocol,
     struct sockaddr *sa);
 #endif /* ICL_RDMA */
 
-static int
+int
 icl_conn_connect_tcp(struct icl_conn *ic, int domain, int socktype,
     int protocol, struct sockaddr *from_sa, struct sockaddr *to_sa)
 {
@@ -153,17 +147,6 @@ icl_conn_connect_tcp(struct icl_conn *ic, int domain, int socktype,
 		soclose(so);
 
 	return (error);
-}
-
-int
-icl_conn_connect(struct icl_conn *ic, bool rdma, int domain, int socktype,
-    int protocol, struct sockaddr *from_sa, struct sockaddr *to_sa)
-{
-	ic->ic_iser = rdma;
-	if (rdma)
-		return (icl_conn_connect_rdma(ic, domain, socktype, protocol, from_sa, to_sa));
-
-	return (icl_conn_connect_tcp(ic, domain, socktype, protocol, from_sa, to_sa));
 }
 
 struct icl_listen *
