@@ -1185,7 +1185,7 @@ icl_soft_new_conn(const char *name, struct mtx *lock)
 #endif
 	ic->ic_max_data_segment_length = ICL_MAX_DATA_SEGMENT_LENGTH;
 	ic->ic_name = name;
-	ic->ic_offload = "None";
+	ic->ic_driver = strdup("tcp", M_TEMP);
 
 	return (ic);
 }
@@ -1509,12 +1509,7 @@ icl_soft_load(void)
 	    UMA_ALIGN_PTR, 0);
 	refcount_init(&icl_ncons, 0);
 
-	/*
-	 * The reason we call this "none" is that to the user,
-	 * it's known as "offload driver"; "offload driver: soft"
-	 * doesn't make much sense.
-	 */
-	error = icl_register("none", 0, icl_soft_limits, icl_soft_new_conn);
+	error = icl_register("tcp", 0, icl_soft_limits, icl_soft_new_conn);
 	KASSERT(error == 0, ("failed to register"));
 
 	return (error);
@@ -1527,7 +1522,7 @@ icl_soft_unload(void)
 	if (icl_ncons != 0)
 		return (EBUSY);
 
-	icl_unregister("none");
+	icl_unregister("tcp");
 
 	uma_zdestroy(icl_pdu_zone);
 

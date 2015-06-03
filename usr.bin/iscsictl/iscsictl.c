@@ -327,9 +327,9 @@ conf_from_target(struct iscsi_session_conf *conf,
 		conf->isc_discovery = 1;
 	if (targ->t_protocol == PROTOCOL_ISER)
 		conf->isc_iser = 1;
-	if (targ->t_offload != NULL)
-		strlcpy(conf->isc_offload, targ->t_offload,
-		    sizeof(conf->isc_offload));
+	if (targ->t_driver != NULL)
+		strlcpy(conf->isc_driver, targ->t_driver,
+		    sizeof(conf->isc_driver));
 	if (targ->t_header_digest == DIGEST_CRC32C)
 		conf->isc_header_digest = ISCSI_DIGEST_CRC32C;
 	else
@@ -546,8 +546,8 @@ kernel_list(int iscsi_fd, const struct target *targ __unused,
 			    "ImmediateData:", state->iss_immediate_data ? "Yes" : "No");
 			xo_emit("{L:/%-18s}{V:iSER/%s}\n",
 			    "iSER (RDMA):", conf->isc_iser ? "Yes" : "No");
-			xo_emit("{L:/%-18s}{V:offloadDriver/%s}\n",
-			    "Offload driver:", state->iss_offload);
+			xo_emit("{L:/%-18s}{V:Driver/%s}\n",
+			    "Driver:", state->iss_driver);
 			xo_emit("{L:/%-18s}",
 			    "Device nodes:");
 			print_periphs(state->iss_id);
@@ -956,13 +956,21 @@ main(int argc, char **argv)
 			targ->t_session_type = SESSION_TYPE_NORMAL;
 			targ->t_address = portal;
 		}
-                if (transport != NULL) {
-                        if (strcasecmp(transport, "iser") == 0) {
-                                targ->t_protocol = PROTOCOL_ISER;
-                                targ->t_offload = transport;
-                        } else if (strcasecmp(transport, "tcp") != 0)
-                                errx(1, "invalid transport name \"%s\"", transport);
-                }
+		if (transport != NULL) {
+			if (strcasecmp(transport, "iser") == 0) {
+				targ->t_protocol = PROTOCOL_ISER;
+				targ->t_driver = transport;
+			} else if (strcasecmp(transport, "tcp") == 0) {
+				targ->t_protocol = PROTOCOL_ISCSI;
+				targ->t_driver = transport;
+			} else {
+				xo_errx(1, "invalid transport name \"%s\"", transport);
+			}
+		} else {
+			/* Default protocol is tcp*/
+			targ->t_protocol = PROTOCOL_ISCSI;
+			targ->t_driver = (char *)"tcp";
+		}
 		targ->t_user = user;
 		targ->t_secret = secret;
 
