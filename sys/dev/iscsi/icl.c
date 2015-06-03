@@ -104,16 +104,16 @@ icl_find(const char *name)
 }
 
 struct icl_conn *
-icl_new_conn(const char *offload, const char *name, struct mtx *lock)
+icl_new_conn(const char *driver, const char *name, struct mtx *lock)
 {
 	struct icl_module *im;
 	struct icl_conn *ic;
 
 	sx_slock(&sc->sc_lock);
-	im = icl_find(offload);
+	im = icl_find(driver);
 
 	if (im == NULL) {
-		ICL_WARN("offload \"%s\" not found", offload);
+		ICL_WARN("driver \"%s\" not found", driver);
 		sx_sunlock(&sc->sc_lock);
 		return (NULL);
 	}
@@ -125,16 +125,16 @@ icl_new_conn(const char *offload, const char *name, struct mtx *lock)
 }
 
 int
-icl_limits(const char *offload, size_t *limitp)
+icl_limits(const char *driver, size_t *limitp)
 {
 	struct icl_module *im;
 	int error;
 
 	sx_slock(&sc->sc_lock);
-	im = icl_find(offload);
+	im = icl_find(driver);
 
 	if (im == NULL) {
-		ICL_WARN("offload \"%s\" not found", offload);
+		ICL_WARN("driver \"%s\" not found", driver);
 		sx_sunlock(&sc->sc_lock);
 		return (ENXIO);
 	}
@@ -147,22 +147,22 @@ icl_limits(const char *offload, size_t *limitp)
 
 
 int
-icl_register(const char *offload, int priority, int (*limits)(size_t *),
+icl_register(const char *driver, int priority, int (*limits)(size_t *),
     struct icl_conn *(*new_conn)(const char *, struct mtx *))
 {
 	struct icl_module *im;
 
 	sx_xlock(&sc->sc_lock);
-	im = icl_find(offload);
+	im = icl_find(driver);
 
 	if (im != NULL) {
-		ICL_WARN("offload \"%s\" already registered", offload);
+		ICL_WARN("driver \"%s\" already registered", driver);
 		sx_xunlock(&sc->sc_lock);
 		return (EBUSY);
 	}
 
 	im = malloc(sizeof(*im), M_ICL, M_ZERO | M_WAITOK);
-	im->im_name = strdup(offload, M_ICL);
+	im->im_name = strdup(driver, M_ICL);
 	im->im_priority = priority;
 	im->im_limits = limits;
 	im->im_new_conn = new_conn;
@@ -170,20 +170,20 @@ icl_register(const char *offload, int priority, int (*limits)(size_t *),
 	TAILQ_INSERT_HEAD(&sc->sc_modules, im, im_next);
 	sx_xunlock(&sc->sc_lock);
 
-	ICL_DEBUG("offload \"%s\" registered", offload);
+	ICL_DEBUG("driver \"%s\" registered", driver);
 	return (0);
 }
 
 int
-icl_unregister(const char *offload)
+icl_unregister(const char *driver)
 {
 	struct icl_module *im;
 
 	sx_xlock(&sc->sc_lock);
-	im = icl_find(offload);
+	im = icl_find(driver);
 
 	if (im == NULL) {
-		ICL_WARN("offload \"%s\" not registered", offload);
+		ICL_WARN("driver \"%s\" not registered", driver);
 		sx_xunlock(&sc->sc_lock);
 		return (ENXIO);
 	}
@@ -194,7 +194,7 @@ icl_unregister(const char *offload)
 	free(im->im_name, M_ICL);
 	free(im, M_ICL);
 
-	ICL_DEBUG("offload \"%s\" unregistered", offload);
+	ICL_DEBUG("driver \"%s\" unregistered", driver);
 	return (0);
 }
 

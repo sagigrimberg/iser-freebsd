@@ -468,8 +468,8 @@ login_negotiate(struct connection *conn)
 	request = login_new_request(conn, BHSLR_STAGE_OPERATIONAL_NEGOTIATION);
 	request_keys = keys_new();
 
-	log_debugx("offload \"%s\" limits MaxRecvDataSegmentLength to %zd",
-	    conn->conn_conf.isc_offload,
+	log_debugx("driver \"%s\" limits MaxRecvDataSegmentLength to %zd",
+	    conn->conn_conf.isc_driver,
 	    conn->conn_limits.isl_max_data_segment_length);
 
 	/*

@@ -247,7 +247,7 @@ iser_new_conn(const char *name, struct mtx *lock)
 	ic = &iser_conn->icl_conn;
 	ic->ic_lock = lock;
 	ic->ic_name = name;
-	ic->ic_offload = strdup("iser", M_TEMP);
+	ic->ic_driver = strdup("iser", M_TEMP);
 
 	return (ic);
 }
