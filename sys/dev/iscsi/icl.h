@@ -115,7 +115,7 @@ struct icl_conn {
 	bool			ic_disconnecting;
 	bool			ic_iser;
 	const char		*ic_name;
-	const char		*ic_offload;
+	const char		*ic_driver;
 
 	void			(*ic_receive)(struct icl_pdu *);
 	void			(*ic_error)(struct icl_conn *);

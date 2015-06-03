@@ -327,9 +327,9 @@ conf_from_target(struct iscsi_session_conf *conf,
 		conf->isc_discovery = 1;
 	if (targ->t_protocol == PROTOCOL_ISER)
 		conf->isc_iser = 1;
-	if (targ->t_offload != NULL)
-		strlcpy(conf->isc_offload, targ->t_offload,
-		    sizeof(conf->isc_offload));
+	if (targ->t_driver != NULL)
+		strlcpy(conf->isc_driver, targ->t_driver,
+		    sizeof(conf->isc_driver));
 	if (targ->t_header_digest == DIGEST_CRC32C)
 		conf->isc_header_digest = ISCSI_DIGEST_CRC32C;
 	else
@@ -520,7 +520,7 @@ kernel_list(int iscsi_fd, const struct target *targ __unused,
 			    state->iss_immediate_data ? "Yes" : "No");
 			printf("iSER (RDMA):      %s\n",
 			    conf->isc_iser ? "Yes" : "No");
-			printf("Offload driver:   %s\n", state->iss_offload);
+			printf("Driver:           %s\n", state->iss_driver);
 			printf("Device nodes:     ");
 			print_periphs(state->iss_id);
 			printf("\n\n");
@@ -847,13 +847,21 @@ main(int argc, char **argv)
 			targ->t_session_type = SESSION_TYPE_NORMAL;
 			targ->t_address = portal;
 		}
-                if (transport != NULL) {
-                        if (strcasecmp(transport, "iser") == 0) {
-                                targ->t_protocol = PROTOCOL_ISER;
-                                targ->t_offload = transport;
-                        } else if (strcasecmp(transport, "tcp") != 0)
-                                errx(1, "invalid transport name \"%s\"", transport);
-                }
+		if (transport != NULL) {
+			if (strcasecmp(transport, "iser") == 0) {
+				targ->t_protocol = PROTOCOL_ISER;
+				targ->t_driver = transport;
+			} else if (strcasecmp(transport, "tcp") == 0) {
+				targ->t_protocol = PROTOCOL_ISCSI;
+				targ->t_driver = transport;
+			} else {
+				errx(1, "invalid transport name \"%s\"", transport);
+			}
+		} else {
+			/* Default protocol is tcp*/
+			targ->t_protocol = PROTOCOL_ISCSI;
+			targ->t_driver = (char *)"tcp";
+		}
 		targ->t_user = user;
 		targ->t_secret = secret;
 

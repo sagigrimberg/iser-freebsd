@@ -254,9 +254,9 @@ session_type:	SESSION_TYPE EQUALS STR
 
 offload:	OFFLOAD EQUALS STR
 	{
-		if (target->t_offload != NULL)
+		if (target->t_driver != NULL)
 			errx(1, "duplicated offload at line %d", lineno);
-		target->t_offload = $3;
+		target->t_driver = $3;
 	}
 	;
 
