@@ -650,9 +650,9 @@ iser_conn_terminate(struct iser_conn *iser_conn)
 
 	ISER_INFO("iser_conn %p", iser_conn);
 
-	mtx_lock(&iser_conn->state_mutex);
+	sx_xlock(&iser_conn->state_mutex);
 	iser_conn->state = ISER_CONN_TERMINATING;
-	mtx_unlock(&iser_conn->state_mutex);
+	sx_xunlock(&iser_conn->state_mutex);
 
 	if (ib_conn->qp == NULL) {
 		/* HOW can this be??? */
@@ -698,9 +698,9 @@ iser_connect_error(struct rdma_cm_id *cma_id)
 
 	ISER_ERR("conn %p", iser_conn);
 
-	mtx_lock(&iser_conn->state_mutex);
+	sx_xlock(&iser_conn->state_mutex);
 	iser_conn->state = ISER_CONN_TERMINATING;
-	mtx_unlock(&iser_conn->state_mutex);
+	sx_xunlock(&iser_conn->state_mutex);
 	cv_signal(&iser_conn->up_cv);
 }
 
@@ -786,9 +786,9 @@ iser_connected_handler(struct rdma_cm_id *cma_id)
 	ISER_INFO("remote qpn:%x my qpn:%x",
 		  attr.dest_qp_num, cma_id->qp->qp_num);
 
-	mtx_lock(&iser_conn->state_mutex);
+	sx_xlock(&iser_conn->state_mutex);
 	iser_conn->state = ISER_CONN_UP;
-	mtx_unlock(&iser_conn->state_mutex);
+	sx_xunlock(&iser_conn->state_mutex);
 	cv_signal(&iser_conn->up_cv);
 }
 
@@ -797,10 +797,10 @@ iser_cleanup_handler(struct rdma_cm_id *cma_id, bool destroy)
 {
 	struct iser_conn *iser_conn = cma_id->context;
 
-	mtx_lock(&iser_conn->state_mutex);
+	sx_xlock(&iser_conn->state_mutex);
 	if (iser_conn->state != ISER_CONN_TERMINATING)
 		iser_conn->icl_conn.ic_error(&iser_conn->icl_conn);
-	mtx_unlock(&iser_conn->state_mutex);
+	sx_xunlock(&iser_conn->state_mutex);
 };
 
 int
