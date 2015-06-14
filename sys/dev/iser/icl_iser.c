@@ -373,17 +373,16 @@ addr_failure:
 	return (err);
 }
 
+/**
+ * Called with session spinlock held.
+ * No need to lock state mutex on an advisory check.
+ **/
 bool
 iser_conn_connected(struct icl_conn *ic)
 {
 	struct iser_conn *iser_conn = icl_to_iser_conn(ic);
-	bool connected;
 
-	mtx_lock(&iser_conn->state_mutex);
-	connected = (iser_conn->state == ISER_CONN_UP);
-	mtx_unlock(&iser_conn->state_mutex);
-
-	return (connected);
+	return (iser_conn->state == ISER_CONN_UP);
 }
 
 int
