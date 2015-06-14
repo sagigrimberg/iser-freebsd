@@ -578,7 +578,9 @@ iser_free_ib_conn_res(struct iser_conn *iser_conn,
 		  iser_conn, ib_conn->cma_id, ib_conn->qp);
 
 	if (ib_conn->qp != NULL) {
+		mtx_lock(&ig.connlist_mutex);
 		ib_conn->comp->active_qps--;
+		mtx_unlock(&ig.connlist_mutex);
 		rdma_destroy_qp(ib_conn->cma_id);
 		ib_conn->qp = NULL;
 	}
