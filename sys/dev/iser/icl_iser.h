@@ -407,7 +407,7 @@ struct iser_conn {
 	struct mtx                   up_lock;
 	struct cv                    up_cv;
 	struct list_head             conn_list;
-	struct mtx		     		 state_mutex;
+	struct sx		     		 state_mutex;
 	enum iser_conn_state	     state;
 	int		     				 qp_max_recv_dtos;
 	int		     				 min_posted_rx;

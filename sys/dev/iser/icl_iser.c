@@ -241,7 +241,7 @@ iser_new_conn(const char *name, struct mtx *lock)
 
 	mtx_init(&iser_conn->up_lock, "iser_lock", NULL, MTX_DEF);
 	cv_init(&iser_conn->up_cv, "iser_cv");
-	mtx_init(&iser_conn->state_mutex, "iser_conn_state_mutex", NULL, MTX_DEF);
+	sx_init(&iser_conn->state_mutex, "iser_conn_state_mutex");
 	mtx_init(&iser_conn->ib_conn.flush_lock, "flush_lock", NULL, MTX_DEF);
 	cv_init(&iser_conn->ib_conn.flush_cv, "flush_cv");
 	mtx_init(&iser_conn->ib_conn.lock, "lock", NULL, MTX_DEF);
@@ -262,7 +262,7 @@ iser_conn_free(struct icl_conn *ic)
 
 	cv_destroy(&iser_conn->ib_conn.flush_cv);
 	mtx_destroy(&iser_conn->ib_conn.flush_lock);
-	mtx_destroy(&iser_conn->state_mutex);
+	sx_destroy(&iser_conn->state_mutex);
 	cv_destroy(&iser_conn->up_cv);
 	mtx_destroy(&iser_conn->up_lock);
 	kobj_delete((struct kobj *)iser_conn, M_ICL_ISER);
@@ -320,9 +320,9 @@ iser_conn_connect(struct icl_conn *ic, int domain, int socktype,
 	 /* the device is known only --after-- address resolution */
 	ib_conn->device = NULL;
 
-	mtx_lock(&iser_conn->state_mutex);
+	sx_xlock(&iser_conn->state_mutex);
 	iser_conn->state = ISER_CONN_PENDING;
-	mtx_unlock(&iser_conn->state_mutex);
+	sx_xunlock(&iser_conn->state_mutex);
 
 	ib_conn->beacon.wr_id = ISER_BEACON_WRID;
 	ib_conn->beacon.opcode = IB_WR_SEND;
@@ -349,13 +349,13 @@ iser_conn_connect(struct icl_conn *ic, int domain, int socktype,
 	mtx_unlock(&iser_conn->up_lock);
 	ISER_DBG("after cv_wait: %p", iser_conn);
 
-	mtx_lock(&iser_conn->state_mutex);
+	sx_xlock(&iser_conn->state_mutex);
 	if (iser_conn->state != ISER_CONN_UP) {
 		err = EIO;
-		mtx_unlock(&iser_conn->state_mutex);
+		sx_unlock(&iser_conn->state_mutex);
 		goto addr_failure;
 	}
-	mtx_unlock(&iser_conn->state_mutex);
+	sx_xunlock(&iser_conn->state_mutex);
 
 	err = iser_alloc_login_buf(iser_conn);
 	if (err)
