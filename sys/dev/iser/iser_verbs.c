@@ -142,8 +142,10 @@ static void iser_handle_wc(struct ib_wc *wc)
 
 		if (wc->wr_id == ISER_BEACON_WRID) {
 			/* all flush errors were consumed */
+			mtx_lock(&ib_conn->flush_lock);
 			ISER_DBG("got ISER_BEACON_WRID");
 			cv_signal(&ib_conn->flush_cv);
+			mtx_unlock(&ib_conn->flush_lock);
 		} else {
 			iser_handle_comp_error(ib_conn, wc);
 		}
@@ -669,15 +671,16 @@ iser_conn_terminate(struct iser_conn *iser_conn)
 			ISER_ERR("Failed to disconnect, conn: 0x%p err %d",
 				iser_conn, err);
 
+		mtx_lock(&ib_conn->flush_lock);
 		/* post an indication that all flush errors were consumed */
 		err = ib_post_send(ib_conn->qp, &ib_conn->beacon, &bad_wr);
 		if (err) {
 			ISER_ERR("conn %p failed to post beacon", ib_conn);
+			mtx_unlock(&ib_conn->flush_lock);
 			return (1);
 		}
 
 		ISER_DBG("before cv_wait: %p", iser_conn);
-		mtx_lock(&ib_conn->flush_lock);
 		cv_wait(&ib_conn->flush_cv, &ib_conn->flush_lock);
 		mtx_unlock(&ib_conn->flush_lock);
 		ISER_DBG("after cv_wait: %p", iser_conn);
