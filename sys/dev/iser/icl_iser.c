@@ -273,27 +273,39 @@ int
 iser_conn_handoff(struct icl_conn *ic, int cmds_max)
 {
 	struct iser_conn *iser_conn = icl_to_iser_conn(ic);
+	int error = 0;
+
+	sx_xlock(&iser_conn->state_mutex);
+	if (iser_conn->state != ISER_CONN_UP) {
+		error = EINVAL;
+		ISER_ERR("iser_conn %p state is %d, teardown started\n",
+			 iser_conn, iser_conn->state);
+		goto out;
+	}
 
 	/*
 	 * In discovery session no need to allocate rx desc and posting recv
 	 * work request
 	 */
 	if (ic->ic_session_type_discovery(ic))
-		return (0);
-
-	if (iser_alloc_rx_descriptors(iser_conn, cmds_max))
 		goto out;
 
-	if (iser_post_recvm(iser_conn, iser_conn->min_posted_rx))
+	error = iser_alloc_rx_descriptors(iser_conn, cmds_max);
+	if (error)
+		goto out;
+
+	error = iser_post_recvm(iser_conn, iser_conn->min_posted_rx);
+	if (error)
 		goto post_error;
 
-	return (0);
+	sx_xunlock(&iser_conn->state_mutex);
+	return (error);
 
 post_error:
 	iser_free_rx_descriptors(iser_conn);
 out:
-	ISER_ERR("fail in handoff stage");
-	return (ENOMEM);
+	sx_xunlock(&iser_conn->state_mutex);
+	return (error);
 
 }
 
