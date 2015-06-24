@@ -239,7 +239,6 @@ iser_new_conn(const char *name, struct mtx *lock)
 		return (NULL);
 	}
 
-	mtx_init(&iser_conn->up_lock, "iser_lock", NULL, MTX_DEF);
 	cv_init(&iser_conn->up_cv, "iser_cv");
 	sx_init(&iser_conn->state_mutex, "iser_conn_state_mutex");
 	mtx_init(&iser_conn->ib_conn.flush_lock, "flush_lock", NULL, MTX_DEF);
@@ -264,7 +263,6 @@ iser_conn_free(struct icl_conn *ic)
 	mtx_destroy(&iser_conn->ib_conn.flush_lock);
 	sx_destroy(&iser_conn->state_mutex);
 	cv_destroy(&iser_conn->up_cv);
-	mtx_destroy(&iser_conn->up_lock);
 	kobj_delete((struct kobj *)iser_conn, M_ICL_ISER);
 	refcount_release(&icl_iser_ncons);
 }
@@ -329,12 +327,11 @@ iser_conn_connect(struct icl_conn *ic, int domain, int socktype,
 	struct ib_conn *ib_conn = &iser_conn->ib_conn;
 	int err = 0;
 
+	sx_xlock(&iser_conn->state_mutex);
 	 /* the device is known only --after-- address resolution */
 	ib_conn->device = NULL;
 
-	sx_xlock(&iser_conn->state_mutex);
 	iser_conn->state = ISER_CONN_PENDING;
-	sx_xunlock(&iser_conn->state_mutex);
 
 	ib_conn->beacon.wr_id = ISER_BEACON_WRID;
 	ib_conn->beacon.opcode = IB_WR_SEND;
@@ -356,22 +353,18 @@ iser_conn_connect(struct icl_conn *ic, int domain, int socktype,
 	}
 
 	ISER_DBG("before cv_wait: %p", iser_conn);
-	mtx_lock(&iser_conn->up_lock);
-	cv_wait(&iser_conn->up_cv, &iser_conn->up_lock);
-	mtx_unlock(&iser_conn->up_lock);
+	cv_wait(&iser_conn->up_cv, &iser_conn->state_mutex);
 	ISER_DBG("after cv_wait: %p", iser_conn);
 
-	sx_xlock(&iser_conn->state_mutex);
 	if (iser_conn->state != ISER_CONN_UP) {
 		err = EIO;
-		sx_unlock(&iser_conn->state_mutex);
 		goto addr_failure;
 	}
-	sx_xunlock(&iser_conn->state_mutex);
 
 	err = iser_alloc_login_buf(iser_conn);
 	if (err)
 		goto addr_failure;
+	sx_xunlock(&iser_conn->state_mutex);
 
 	mtx_lock(&ig.connlist_mutex);
 	list_add(&iser_conn->conn_list, &ig.connlist);
@@ -382,6 +375,7 @@ iser_conn_connect(struct icl_conn *ic, int domain, int socktype,
 id_failure:
 	ib_conn->cma_id = NULL;
 addr_failure:
+	sx_xunlock(&iser_conn->state_mutex);
 	return (err);
 }
 
