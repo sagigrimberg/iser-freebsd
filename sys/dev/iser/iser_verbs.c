@@ -625,10 +625,12 @@ iser_conn_release(struct iser_conn *iser_conn)
 	mtx_unlock(&ig.connlist_mutex);
 
 	/*
-	 * In case we never got to bind stage, we still need to
+	 * In case we reconnecting or removing session, we need to
 	 * release IB resources (which is safe to call more than once).
 	 */
+	sx_xlock(&iser_conn->state_mutex);
 	iser_free_ib_conn_res(iser_conn, true);
+	sx_xunlock(&iser_conn->state_mutex);
 
 	if (ib_conn->cma_id != NULL) {
 		rdma_destroy_id(ib_conn->cma_id);
