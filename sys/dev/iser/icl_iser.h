@@ -404,7 +404,6 @@ struct ib_conn {
 struct iser_conn {
 	struct icl_conn             icl_conn;
 	struct ib_conn               ib_conn;
-	struct mtx                   up_lock;
 	struct cv                    up_cv;
 	struct list_head             conn_list;
 	struct sx		     		 state_mutex;
