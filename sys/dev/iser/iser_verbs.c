@@ -559,6 +559,22 @@ iser_device_try_release(struct iser_device *device)
 }
 
 /**
+ * Called with state mutex held
+ **/
+static int iser_conn_state_comp_exch(struct iser_conn *iser_conn,
+				     enum iser_conn_state comp,
+				     enum iser_conn_state exch)
+{
+	int ret;
+
+	ret = (iser_conn->state == comp);
+	if (ret)
+		iser_conn->state = exch;
+
+	return ret;
+}
+
+/**
  * iser_free_ib_conn_res - release IB related resources
  * @iser_conn: iser connection struct
  * @destroy: indicator if we need to try to release the
@@ -650,16 +666,17 @@ iser_conn_terminate(struct iser_conn *iser_conn)
 	struct ib_send_wr *bad_wr;
 	int err = 0;
 
-	ISER_INFO("iser_conn %p", iser_conn);
+	/* terminate the iser conn only if the conn state is UP */
+	if (!iser_conn_state_comp_exch(iser_conn, ISER_CONN_UP,
+					   ISER_CONN_TERMINATING))
+		return (0);
 
-	sx_xlock(&iser_conn->state_mutex);
-	iser_conn->state = ISER_CONN_TERMINATING;
-	sx_xunlock(&iser_conn->state_mutex);
+	ISER_INFO("iser_conn %p state %d\n", iser_conn, iser_conn->state);
 
 	if (ib_conn->qp == NULL) {
 		/* HOW can this be??? */
 		ISER_WARN("qp wasn't created");
-		return (err);
+		return (1);
 	}
 
 	/*
@@ -688,7 +705,7 @@ iser_conn_terminate(struct iser_conn *iser_conn)
 		ISER_DBG("after cv_wait: %p", iser_conn);
 	}
 
-	return (err);
+	return (1);
 }
 
 /**
@@ -812,7 +829,7 @@ iser_cleanup_handler(struct rdma_cm_id *cma_id, bool destroy)
 {
 	struct iser_conn *iser_conn = cma_id->context;
 
-	if (iser_conn->state != ISER_CONN_TERMINATING)
+	if (iser_conn_terminate(iser_conn))
 		iser_conn->icl_conn.ic_error(&iser_conn->icl_conn);
 
 }

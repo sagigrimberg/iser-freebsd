@@ -314,7 +314,15 @@ iser_conn_close(struct icl_conn *ic)
 
 	ISER_INFO("closing conn %p", iser_conn);
 
-	iser_conn_terminate(iser_conn);
+	sx_xlock(&iser_conn->state_mutex);
+	/*
+	 * In case iser connection is waiting on conditional variable
+	 * (state PENDING) and we try to close it before connection establishment,
+	 * we need to signal it to continue releasing connection properly.
+	 */
+	if (!iser_conn_terminate(iser_conn) && iser_conn->state == ISER_CONN_PENDING)
+		cv_signal(&iser_conn->up_cv);
+	sx_xunlock(&iser_conn->state_mutex);
 	iser_conn_release(iser_conn);
 
 }
