@@ -396,15 +396,20 @@ iscsi_maintenance_thread_reconnect(struct iscsi_session *is)
 	KASSERT(STAILQ_EMPTY(&is->is_postponed),
 	    ("destroying session with postponed PDUs"));
 
+	is->is_timeout = 0;
+	ISCSI_SESSION_UNLOCK(is);
+
+	icl_conn_close(is->is_conn);
+
 	/*
 	 * Request immediate reconnection from iscsid(8).
 	 */
 	//ISCSI_SESSION_DEBUG(is, "waking up iscsid(8)");
+	ISCSI_SESSION_LOCK(is);
 	is->is_waiting_for_iscsid = true;
 	strlcpy(is->is_reason, "Waiting for iscsid(8)", sizeof(is->is_reason));
-	is->is_timeout = 0;
 	ISCSI_SESSION_UNLOCK(is);
-	icl_conn_close(is->is_conn);
+
 	cv_signal(&is->is_softc->sc_cv);
 }
 
