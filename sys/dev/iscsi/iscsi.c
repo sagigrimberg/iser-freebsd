@@ -374,7 +374,6 @@ iscsi_maintenance_thread_reconnect(struct iscsi_session *is)
 	ISCSI_SESSION_LOCK(is);
 
 	is->is_connected = false;
-	is->is_reconnecting = false;
 	is->is_login_phase = false;
 
 #ifdef ICL_KERNEL_PROXY
@@ -467,10 +466,8 @@ iscsi_maintenance_thread(void *arg)
 
 	for (;;) {
 		ISCSI_SESSION_LOCK(is);
-		if (is->is_reconnecting == false &&
-		    is->is_terminating == false &&
-		    STAILQ_EMPTY(&is->is_postponed))
-			cv_wait(&is->is_maintenance_cv, &is->is_lock);
+
+		cv_wait(&is->is_maintenance_cv, &is->is_lock);
 
 		if (is->is_reconnecting) {
 			ISCSI_SESSION_UNLOCK(is);
@@ -1417,6 +1414,7 @@ iscsi_ioctl_daemon_handoff(struct iscsi_softc *sc,
 	is->is_expcmdsn = 0;
 	is->is_maxcmdsn = 0;
 	is->is_waiting_for_iscsid = false;
+	is->is_reconnecting = false;
 	is->is_login_phase = false;
 	is->is_timeout = 0;
 	is->is_connected = true;
@@ -1519,6 +1517,7 @@ iscsi_ioctl_daemon_fail(struct iscsi_softc *sc,
 	ISCSI_SESSION_DEBUG(is, "iscsid(8) failed: %s",
 	    fail->idf_reason);
 	strlcpy(is->is_reason, fail->idf_reason, sizeof(is->is_reason));
+	is->is_reconnecting = false;
 	//is->is_waiting_for_iscsid = false;
 	//is->is_login_phase = true;
 	//iscsi_session_reconnect(is);
@@ -1574,6 +1573,11 @@ iscsi_ioctl_daemon_connect(struct iscsi_softc *sc,
 
 	error = icl_conn_connect(is->is_conn, idc->idc_domain,
 	    idc->idc_socktype, idc->idc_protocol, from_sa, to_sa);
+	if (error) {
+		ISCSI_SESSION_LOCK(is);
+		is->is_reconnecting = false;
+		ISCSI_SESSION_UNLOCK(is);
+	}
 	free(from_sa, M_SONAME);
 	free(to_sa, M_SONAME);
 
@@ -1610,7 +1614,7 @@ iscsi_ioctl_daemon_send(struct iscsi_softc *sc,
 	if (is->is_login_phase == false)
 		return (EBUSY);
 
-	if (is->is_terminating || is->is_reconnecting)
+	if (is->is_terminating)
 		return (EIO);
 
 	datalen = ids->ids_data_segment_len;
@@ -1661,10 +1665,9 @@ iscsi_ioctl_daemon_receive(struct iscsi_softc *sc,
 
 	ISCSI_SESSION_LOCK(is);
 	while (is->is_login_pdu == NULL &&
-	    is->is_terminating == false &&
-	    is->is_reconnecting == false)
+	    is->is_terminating == false)
 		cv_wait(&is->is_login_cv, &is->is_lock);
-	if (is->is_terminating || is->is_reconnecting) {
+	if (is->is_terminating) {
 		ISCSI_SESSION_UNLOCK(is);
 		return (EIO);
 	}
