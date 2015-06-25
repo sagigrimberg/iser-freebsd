@@ -474,17 +474,17 @@ iscsi_maintenance_thread(void *arg)
 
 		cv_wait(&is->is_maintenance_cv, &is->is_lock);
 
-		if (is->is_reconnecting) {
-			ISCSI_SESSION_UNLOCK(is);
-			iscsi_maintenance_thread_reconnect(is);
-			continue;
-		}
-
 		if (is->is_terminating) {
 			ISCSI_SESSION_UNLOCK(is);
 			iscsi_maintenance_thread_terminate(is);
 			kthread_exit();
 			return;
+		}
+
+		if (is->is_reconnecting) {
+			ISCSI_SESSION_UNLOCK(is);
+			iscsi_maintenance_thread_reconnect(is);
+			continue;
 		}
 
 		iscsi_session_send_postponed(is);
