@@ -82,6 +82,10 @@ METHOD void close {
 	struct icl_conn *_ic;
 };
 
+METHOD bool connected {
+	struct icl_conn *_ic;
+};
+
 METHOD int task_setup {
 	struct icl_conn *_ic;
 	struct ccb_scsiio *_csio;
