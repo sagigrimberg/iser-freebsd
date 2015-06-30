@@ -97,6 +97,7 @@ static icl_conn_pdu_queue_t	icl_soft_conn_pdu_queue;
 static icl_conn_handoff_t	icl_soft_conn_handoff;
 static icl_conn_free_t		icl_soft_conn_free;
 static icl_conn_close_t		icl_soft_conn_close;
+static icl_conn_connected_t	icl_soft_conn_connected;
 static icl_conn_task_setup_t	icl_soft_conn_task_setup;
 static icl_conn_task_done_t	icl_soft_conn_task_done;
 static icl_conn_transfer_setup_t	icl_soft_conn_transfer_setup;
@@ -113,6 +114,7 @@ static kobj_method_t icl_soft_methods[] = {
 	KOBJMETHOD(icl_conn_handoff, icl_soft_conn_handoff),
 	KOBJMETHOD(icl_conn_free, icl_soft_conn_free),
 	KOBJMETHOD(icl_conn_close, icl_soft_conn_close),
+	KOBJMETHOD(icl_conn_connected, icl_soft_conn_connected),
 	KOBJMETHOD(icl_conn_task_setup, icl_soft_conn_task_setup),
 	KOBJMETHOD(icl_conn_task_done, icl_soft_conn_task_done),
 	KOBJMETHOD(icl_conn_transfer_setup, icl_soft_conn_transfer_setup),
@@ -1421,6 +1423,24 @@ icl_soft_conn_close(struct icl_conn *ic)
 	     ic->ic_outstanding_pdus));
 #endif
 	ICL_CONN_UNLOCK(ic);
+}
+
+bool
+icl_soft_conn_connected(struct icl_conn *ic)
+{
+	ICL_CONN_LOCK_ASSERT_NOT(ic);
+
+	ICL_CONN_LOCK(ic);
+	if (ic->ic_socket == NULL) {
+		ICL_CONN_UNLOCK(ic);
+		return (false);
+	}
+	if (ic->ic_socket->so_error != 0) {
+		ICL_CONN_UNLOCK(ic);
+		return (false);
+	}
+	ICL_CONN_UNLOCK(ic);
+	return (true);
 }
 
 int
