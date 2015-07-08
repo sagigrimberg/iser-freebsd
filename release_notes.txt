@@ -4,7 +4,7 @@
                     Mellanox Storage drivers for FreeBSD
                       Versions:
                         iSER-0.5 (Beta)
-                      Last Modified on June, 2015
+                      Last Modified on July, 2015
 ===============================================================================
 
 ===============================================================================
@@ -68,7 +68,10 @@ iSER:
 iSER:
  - Stress login/logout loops might trigger a use-after-free of iser PDUs.
 
- - Memory pressure when creating to more than 14 sessions.
+ - iSER cannot establish more than 15 sessions.
+   mlx4_core driver is not allocating sufficient memory registration resources
+   for establishing more than 15 iser sessions. This limitation will be resolved
+   once the mlx4_core issue is resolved.
 
  - Double logout request sent in discovery over rdma.
 
