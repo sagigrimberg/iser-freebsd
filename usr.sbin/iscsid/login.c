@@ -438,17 +438,24 @@ login_negotiate_key(struct connection *conn, const char *name,
 		if (tmp <= 0)
 			log_errx(1, "received invalid "
 			    "InitiatorRecvDataSegmentLength");
-		if (tmp > 262144) {
+		if (tmp > ISCSI_DEF_INITIATOR_RECV_DATA_SEGMENT_LENGTH) {
 			log_debugx("capping InitiatorRecvDataSegmentLength "
-			    "from %d to %d", tmp, 262144);
-			tmp = 262144;
+			    "from %d to %d", tmp,
+			    ISCSI_DEF_INITIATOR_RECV_DATA_SEGMENT_LENGTH);
+			tmp = ISCSI_DEF_INITIATOR_RECV_DATA_SEGMENT_LENGTH;
 		}
 		conn->conn_max_data_segment_length = tmp;
 	} else if (strcmp(name, "TargetRecvDataSegmentLength") == 0) {
 		if (conn->conn_immediate_data) {
 			tmp = strtoul(value, NULL, 10);
 			if (tmp <= 0)
-				log_errx(1, "received invalid MaxBurstLength");
+				log_errx(1, "received invalid TargetRecvDataSegmentLength");
+			if (tmp > ISCSI_DEF_TARGET_RECV_DATA_SEGMENT_LENGTH) {
+				log_debugx("capping TargetRecvDataSegmentLength "
+					"from %d to %d", tmp,
+					ISCSI_DEF_TARGET_RECV_DATA_SEGMENT_LENGTH);
+				tmp = ISCSI_DEF_TARGET_RECV_DATA_SEGMENT_LENGTH;
+			}
 			conn->conn_max_burst_length = tmp;
 		}
 	} else {
@@ -494,10 +501,10 @@ login_negotiate(struct connection *conn)
 		keys_add(request_keys, "MaxOutstandingR2T", "1");
 		if (conn->conn_conf.isc_iser == 1) {
 			/* Hard-coded for like Linux for now */
-			keys_add(request_keys, "InitiatorRecvDataSegmentLength",
-					       "262144");
-			keys_add(request_keys, "TargetRecvDataSegmentLength",
-					       "8192");
+			keys_add_int(request_keys, "InitiatorRecvDataSegmentLength",
+					       ISCSI_DEF_INITIATOR_RECV_DATA_SEGMENT_LENGTH);
+			keys_add_int(request_keys, "TargetRecvDataSegmentLength",
+					       ISCSI_DEF_TARGET_RECV_DATA_SEGMENT_LENGTH);
 			keys_add(request_keys, "RDMAExtensions", "Yes");
 		} else {
 			keys_add_int(request_keys, "MaxRecvDataSegmentLength",
