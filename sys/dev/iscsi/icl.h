@@ -132,10 +132,12 @@ struct icl_conn {
 struct icl_conn	*icl_new_conn(const char *offload, const char *name,
 		    struct mtx *lock);
 int		icl_limits(const char *offload, size_t *limitp);
+u_int32_t	icl_hba_misc(const char *driver);
 
 int		icl_register(const char *offload, int priority,
 		    int (*limits)(size_t *),
-		    struct icl_conn *(*new_conn)(const char *, struct mtx *));
+		    struct icl_conn *(*new_conn)(const char *, struct mtx *),
+		    u_int32_t (*hba_misc)());
 int		icl_unregister(const char *offload);
 
 struct sockaddr;

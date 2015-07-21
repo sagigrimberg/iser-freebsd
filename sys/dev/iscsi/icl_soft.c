@@ -1467,6 +1467,12 @@ icl_soft_conn_transfer_done(struct icl_conn *ic, void *prv)
 {
 }
 
+static u_int32_t
+icl_soft_hba_misc()
+{
+	return (0);
+}
+
 static int
 icl_soft_limits(size_t *limitp)
 {
@@ -1519,7 +1525,8 @@ icl_soft_load(void)
 	    UMA_ALIGN_PTR, 0);
 	refcount_init(&icl_ncons, 0);
 
-	error = icl_register("tcp", 0, icl_soft_limits, icl_soft_new_conn);
+	error = icl_register("tcp", 0, icl_soft_limits, icl_soft_new_conn,
+		icl_soft_hba_misc);
 	KASSERT(error == 0, ("failed to register"));
 
 	return (error);

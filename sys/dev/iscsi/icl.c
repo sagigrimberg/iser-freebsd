@@ -59,6 +59,7 @@ struct icl_module {
 	int				(*im_limits)(size_t *limitp);
 	struct icl_conn			*(*im_new_conn)(const char *name,
 					    struct mtx *lock);
+	u_int32_t			(*im_hba_misc)();
 };
 
 struct icl_softc {
@@ -145,10 +146,31 @@ icl_limits(const char *driver, size_t *limitp)
 	return (error);
 }
 
+u_int32_t
+icl_hba_misc(const char *driver)
+{
+	struct icl_module *im;
+	u_int32_t ret = 0;
+
+	sx_slock(&sc->sc_lock);
+	im = icl_find(driver);
+
+	if (im == NULL) {
+		ICL_WARN("driver \"%s\" not found", driver);
+		sx_sunlock(&sc->sc_lock);
+		return (ret);
+	}
+
+	ret = im->im_hba_misc();
+	sx_sunlock(&sc->sc_lock);
+
+	return (ret);
+}
 
 int
 icl_register(const char *driver, int priority, int (*limits)(size_t *),
-    struct icl_conn *(*new_conn)(const char *, struct mtx *))
+    struct icl_conn *(*new_conn)(const char *, struct mtx *),
+    u_int32_t (*hba_misc)())
 {
 	struct icl_module *im;
 
@@ -166,6 +188,7 @@ icl_register(const char *driver, int priority, int (*limits)(size_t *),
 	im->im_priority = priority;
 	im->im_limits = limits;
 	im->im_new_conn = new_conn;
+	im->im_hba_misc = hba_misc;
 
 	TAILQ_INSERT_HEAD(&sc->sc_modules, im, im_next);
 	sx_xunlock(&sc->sc_lock);

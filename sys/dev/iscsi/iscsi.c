@@ -2284,7 +2284,7 @@ iscsi_action(struct cam_sim *sim, union ccb *ccb)
 		cpi->version_num = 1;
 		cpi->hba_inquiry = PI_TAG_ABLE;
 		cpi->target_sprt = 0;
-		cpi->hba_misc = PIM_EXTLUNS;
+		cpi->hba_misc = PIM_EXTLUNS | icl_hba_misc(is->is_conf.isc_driver);
 		cpi->hba_eng_cnt = 0;
 		cpi->max_target = 0;
 		/*
