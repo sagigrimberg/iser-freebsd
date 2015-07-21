@@ -51,6 +51,7 @@
 #include <sys/sx.h>
 #include <sys/uio.h>
 #include <sys/taskqueue.h>
+#include <sys/bio.h>
 #include <vm/uma.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>

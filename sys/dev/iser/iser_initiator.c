@@ -276,26 +276,77 @@ iser_free_rx_descriptors(struct iser_conn *iser_conn)
 }
 
 static void
-iser_csio_to_sg(struct ccb_scsiio *csio, struct iser_data_buf *data_buf)
+iser_buf_to_sg(void *buf, struct iser_data_buf *data_buf)
 {
 	struct scatterlist *sg;
-	void *buf;
 	int i;
-	unsigned int total_left, buflen, offset;
+	size_t len, tlen;
+	int offset;
 
-	buf = csio->data_ptr;
-	total_left = data_buf->data_len;
+	tlen = data_buf->data_len;
 
-	for (i = 0; 0 < total_left; i++)  {
+	for (i = 0; 0 < tlen; i++, tlen -= len)  {
 		sg = &data_buf->sgl[i];
 		offset = ((uintptr_t)buf) & ~PAGE_MASK;
-		buflen = min(PAGE_SIZE - offset, total_left);
-		sg_set_buf(sg, buf, buflen);
-		buf = (void *)(((u64)buf) + (u64)buflen);
-		total_left -= buflen;
+		len = min(PAGE_SIZE - offset, tlen);
+		sg_set_buf(sg, buf, len);
+		buf = (void *)(((u64)buf) + (u64)len);
 	}
+
 	data_buf->size = i;
 	sg_mark_end(sg);
+}
+
+
+static void
+iser_bio_to_sg(struct bio *bp, struct iser_data_buf *data_buf)
+{
+	struct scatterlist *sg;
+	int i;
+	size_t len, tlen;
+	int offset;
+
+	tlen = bp->bio_bcount;
+	offset = bp->bio_ma_offset;
+
+	for (i = 0; 0 < tlen; i++, tlen -= len) {
+		sg = &data_buf->sgl[i];
+		len = min(PAGE_SIZE - offset, tlen);
+		sg_set_page(sg, bp->bio_ma[i], len, offset);
+		offset = 0;
+	}
+
+	data_buf->size = i;
+	sg_mark_end(sg);
+}
+
+static int
+iser_csio_to_sg(struct ccb_scsiio *csio, struct iser_data_buf *data_buf)
+{
+	struct ccb_hdr *ccbh;
+	int err = 0;
+
+	ccbh = &csio->ccb_h;
+	switch ((ccbh->flags & CAM_DATA_MASK)) {
+		case CAM_DATA_BIO:
+			iser_bio_to_sg((struct bio *) csio->data_ptr, data_buf);
+			break;
+		case CAM_DATA_VADDR:
+			/*
+			 * Support KVA buffers for various scsi commands such as:
+			 *  - REPORT_LUNS
+			 *  - MODE_SENSE_6
+			 *  - INQUIRY
+			 *  - SERVICE_ACTION_IN.
+			 * The data of these commands always mapped into KVA.
+			 */
+			iser_buf_to_sg(csio->data_ptr, data_buf);
+			break;
+		default:
+			ISER_ERR("flags 0x%X unimplemented", ccbh->flags);
+			err = EINVAL;
+	}
+	return (err);
 }
 
 static inline bool
@@ -328,8 +379,11 @@ iser_send_command(struct iser_conn *iser_conn,
 	data_buf->sg = csio->data_ptr;
 	data_buf->data_len = csio->dxfer_len;
 
-	if (likely(csio->dxfer_len))
-		iser_csio_to_sg(csio, data_buf);
+	if (likely(csio->dxfer_len)) {
+		err = iser_csio_to_sg(csio, data_buf);
+		if (unlikely(err))
+			goto send_command_error;
+	}
 
 	if (hdr->bhssc_flags & BHSSC_FLAGS_R) {
 		err = iser_prepare_read_cmd(iser_pdu);

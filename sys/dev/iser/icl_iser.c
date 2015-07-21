@@ -218,10 +218,15 @@ iser_conn_pdu_queue(struct icl_conn *ic, struct icl_pdu *ip)
 		return;
 	}
 
-	if (is_control_opcode(ip->ip_bhs->bhs_opcode))
-		iser_send_control(iser_conn, iser_pdu);
-	else
-		iser_send_command(iser_conn, iser_pdu);
+	if (is_control_opcode(ip->ip_bhs->bhs_opcode)) {
+		ret = iser_send_control(iser_conn, iser_pdu);
+		if (unlikely(ret))
+			ISER_ERR("Failed to send control pdu %p", iser_pdu);
+	} else {
+		ret = iser_send_command(iser_conn, iser_pdu);
+		if (unlikely(ret))
+			ISER_ERR("Failed to send command pdu %p", iser_pdu);
+	}
 }
 
 static struct icl_conn *
