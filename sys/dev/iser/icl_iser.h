@@ -249,7 +249,7 @@ struct iser_device;
  * @iser_header:   iser header
  * @iscsi_header:  iscsi header (bhs)
  * @type:          command/control/dataout
- * @dam_addr:      header buffer dma_address
+ * @dma_addr:      header buffer dma_address
  * @tx_sg:         sg[0] points to iser/iscsi headers
  *                 sg[1] optionally points to either of immediate data
  *                 unsolicited data-out or control
