@@ -447,6 +447,12 @@ iser_conn_task_done(struct icl_conn *ic, void *prv)
 	iser_pdu_free(ic, ip);
 }
 
+static u_int32_t
+iser_hba_misc()
+{
+	return (PIM_UNMAPPED);
+}
+
 static int
 iser_limits(size_t *limitp)
 {
@@ -469,7 +475,7 @@ icl_iser_load(void)
 
 	refcount_init(&icl_iser_ncons, 0);
 
-	error = icl_register("iser", 0, iser_limits, iser_new_conn);
+	error = icl_register("iser", 0, iser_limits, iser_new_conn, iser_hba_misc);
 	KASSERT(error == 0, ("failed to register iser"));
 
 	memset(&ig, 0, sizeof(struct iser_global));
