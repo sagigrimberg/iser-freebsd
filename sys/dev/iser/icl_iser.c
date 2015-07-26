@@ -26,7 +26,7 @@
 
 #include "icl_iser.h"
 
-SYSCTL_NODE(_kern, OID_AUTO, iser, CTLFLAG_RD, 0, "iSER module");
+SYSCTL_NODE(_kern, OID_AUTO, iser, CTLFLAG_RW, 0, "iSER module");
 int iser_debug = 0;
 SYSCTL_INT(_kern_iser, OID_AUTO, debug, CTLFLAG_RWTUN,
     &iser_debug, 0, "Enable iser debug messages");
