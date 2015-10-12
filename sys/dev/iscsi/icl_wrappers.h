@@ -105,6 +105,13 @@ icl_conn_close(struct icl_conn *ic)
 	ICL_CONN_CLOSE(ic);
 }
 
+static inline void
+icl_conn_release(struct icl_conn *ic)
+{
+
+	ICL_CONN_RELEASE(ic);
+}
+
 static inline int
 icl_conn_connect(struct icl_conn *ic, int domain, int socktype,
 		int protocol, struct sockaddr *from_sa, struct sockaddr *to_sa)

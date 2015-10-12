@@ -522,7 +522,7 @@ int
 iser_conn_terminate(struct iser_conn *);
 
 void
-iser_conn_release(struct iser_conn *);
+iser_free_ib_conn_res(struct iser_conn *, bool);
 
 void
 iser_dma_unmap_task_data(struct icl_iser_pdu *, struct iser_data_buf *,

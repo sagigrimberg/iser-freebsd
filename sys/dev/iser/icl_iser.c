@@ -45,6 +45,7 @@ static icl_conn_pdu_queue_t	iser_conn_pdu_queue;
 static icl_conn_handoff_t	iser_conn_handoff;
 static icl_conn_free_t		iser_conn_free;
 static icl_conn_close_t		iser_conn_close;
+static icl_conn_release_t	iser_conn_release;
 static icl_conn_connect_t	iser_conn_connect;
 static icl_conn_connected_t	iser_conn_connected;
 static icl_conn_task_setup_t	iser_conn_task_setup;
@@ -60,6 +61,7 @@ static kobj_method_t icl_iser_methods[] = {
 	KOBJMETHOD(icl_conn_handoff, iser_conn_handoff),
 	KOBJMETHOD(icl_conn_free, iser_conn_free),
 	KOBJMETHOD(icl_conn_close, iser_conn_close),
+	KOBJMETHOD(icl_conn_release, iser_conn_release),
 	KOBJMETHOD(icl_conn_connect, iser_conn_connect),
 	KOBJMETHOD(icl_conn_connected, iser_conn_connected),
 	KOBJMETHOD(icl_conn_task_setup, iser_conn_task_setup),
@@ -320,6 +322,45 @@ out:
 
 }
 
+/**
+ * Frees all conn objects
+ */
+void
+iser_conn_release(struct icl_conn *ic)
+{
+	struct iser_conn *iser_conn = icl_to_iser_conn(ic);
+	struct ib_conn *ib_conn = &iser_conn->ib_conn;
+	struct iser_conn *curr, *tmp;
+
+	mtx_lock(&ig.connlist_mutex);
+	/*
+	 * Search for iser connection in global list.
+	 * It may not be there in case of failure in connection establishment
+	 * stage.
+	 */
+	list_for_each_entry_safe(curr, tmp, &ig.connlist, conn_list) {
+		if (iser_conn == curr) {
+			ISER_WARN("found iser_conn %p", iser_conn);
+			list_del(&iser_conn->conn_list);
+		}
+	}
+	mtx_unlock(&ig.connlist_mutex);
+
+	/*
+	 * In case we reconnecting or removing session, we need to
+	 * release IB resources (which is safe to call more than once).
+	 */
+	sx_xlock(&iser_conn->state_mutex);
+	iser_free_ib_conn_res(iser_conn, true);
+	sx_xunlock(&iser_conn->state_mutex);
+
+	if (ib_conn->cma_id != NULL) {
+		rdma_destroy_id(ib_conn->cma_id);
+		ib_conn->cma_id = NULL;
+	}
+
+}
+
 void
 iser_conn_close(struct icl_conn *ic)
 {
@@ -336,7 +377,6 @@ iser_conn_close(struct icl_conn *ic)
 	if (!iser_conn_terminate(iser_conn) && iser_conn->state == ISER_CONN_PENDING)
 		cv_signal(&iser_conn->up_cv);
 	sx_xunlock(&iser_conn->state_mutex);
-	iser_conn_release(iser_conn);
 
 }
 

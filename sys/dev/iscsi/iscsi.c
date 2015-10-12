@@ -371,6 +371,8 @@ static void
 iscsi_maintenance_thread_reconnect(struct iscsi_session *is)
 {
 
+	icl_conn_close(is->is_conn);
+
 	ISCSI_SESSION_LOCK(is);
 
 	is->is_connected = false;
@@ -383,14 +385,14 @@ iscsi_maintenance_thread_reconnect(struct iscsi_session *is)
 	}
 	cv_signal(&is->is_login_cv);
 #endif
- 
+
 	if (fail_on_disconnection) {
 		ISCSI_SESSION_DEBUG(is, "connection failed, destroying devices");
 		iscsi_session_cleanup(is, true);
 	} else {
 		iscsi_session_cleanup(is, false);
 	}
- 
+
 	KASSERT(TAILQ_EMPTY(&is->is_outstanding),
 	    ("destroying session with active tasks"));
 	KASSERT(STAILQ_EMPTY(&is->is_postponed),
@@ -399,7 +401,7 @@ iscsi_maintenance_thread_reconnect(struct iscsi_session *is)
 	is->is_timeout = 0;
 	ISCSI_SESSION_UNLOCK(is);
 
-	icl_conn_close(is->is_conn);
+	icl_conn_release(is->is_conn);
 
 	/*
 	 * Request immediate reconnection from iscsid(8).
@@ -424,6 +426,7 @@ iscsi_maintenance_thread_terminate(struct iscsi_session *is)
 	sx_xunlock(&sc->sc_lock);
 
 	callout_drain(&is->is_callout);
+	icl_conn_close(is->is_conn);
 
 	ISCSI_SESSION_LOCK(is);
 
@@ -446,7 +449,7 @@ iscsi_maintenance_thread_terminate(struct iscsi_session *is)
 
 	ISCSI_SESSION_UNLOCK(is);
 
-	icl_conn_close(is->is_conn);
+	icl_conn_release(is->is_conn);
 	icl_conn_free(is->is_conn);
 	mtx_destroy(&is->is_lock);
 	cv_destroy(&is->is_maintenance_cv);
