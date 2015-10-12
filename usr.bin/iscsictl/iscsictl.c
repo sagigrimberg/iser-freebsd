@@ -969,7 +969,7 @@ main(int argc, char **argv)
 		} else {
 			/* Default protocol is tcp*/
 			targ->t_protocol = PROTOCOL_ISCSI;
-			targ->t_driver = (char *)"tcp";
+			targ->t_driver = checked_strdup("tcp");
 		}
 		targ->t_user = user;
 		targ->t_secret = secret;
