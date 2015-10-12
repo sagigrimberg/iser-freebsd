@@ -82,6 +82,10 @@ METHOD void close {
 	struct icl_conn *_ic;
 };
 
+METHOD void release {
+	struct icl_conn *_ic;
+};
+
 METHOD int connect {
 	struct icl_conn *_ic;
 	int _domain;

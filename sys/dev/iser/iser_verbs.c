@@ -588,7 +588,7 @@ static int iser_conn_state_comp_exch(struct iser_conn *iser_conn,
  * so the cm_id removal is out of here. It is Safe to
  * be invoked multiple times.
  */
-static void
+void
 iser_free_ib_conn_res(struct iser_conn *iser_conn,
 				  bool destroy)
 {
@@ -618,44 +618,6 @@ iser_free_ib_conn_res(struct iser_conn *iser_conn,
 			ib_conn->device = NULL;
 		}
 	}
-}
-
-/**
- * Frees all conn objects
- */
-void
-iser_conn_release(struct iser_conn *iser_conn)
-{
-	struct ib_conn *ib_conn = &iser_conn->ib_conn;
-	struct iser_conn *curr, *tmp;
-
-	mtx_lock(&ig.connlist_mutex);
-	/*
-	 * Search for iser connection in global list.
-	 * It may not be there in case of failure in connection establishment
-	 * stage.
-	 */
-	list_for_each_entry_safe(curr, tmp, &ig.connlist, conn_list) {
-		if (iser_conn == curr) {
-			ISER_WARN("found iser_conn %p", iser_conn);
-			list_del(&iser_conn->conn_list);
-		}
-	}
-	mtx_unlock(&ig.connlist_mutex);
-
-	/*
-	 * In case we reconnecting or removing session, we need to
-	 * release IB resources (which is safe to call more than once).
-	 */
-	sx_xlock(&iser_conn->state_mutex);
-	iser_free_ib_conn_res(iser_conn, true);
-	sx_xunlock(&iser_conn->state_mutex);
-
-	if (ib_conn->cma_id != NULL) {
-		rdma_destroy_id(ib_conn->cma_id);
-		ib_conn->cma_id = NULL;
-	}
-
 }
 
 /**

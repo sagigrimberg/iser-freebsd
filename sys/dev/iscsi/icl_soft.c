@@ -97,6 +97,7 @@ static icl_conn_pdu_queue_t	icl_soft_conn_pdu_queue;
 static icl_conn_handoff_t	icl_soft_conn_handoff;
 static icl_conn_free_t		icl_soft_conn_free;
 static icl_conn_close_t		icl_soft_conn_close;
+static icl_conn_release_t		icl_soft_conn_release;
 static icl_conn_connect_t	icl_soft_conn_connect;
 static icl_conn_connected_t	icl_soft_conn_connected;
 static icl_conn_task_setup_t	icl_soft_conn_task_setup;
@@ -115,6 +116,7 @@ static kobj_method_t icl_soft_methods[] = {
 	KOBJMETHOD(icl_conn_handoff, icl_soft_conn_handoff),
 	KOBJMETHOD(icl_conn_free, icl_soft_conn_free),
 	KOBJMETHOD(icl_conn_close, icl_soft_conn_close),
+	KOBJMETHOD(icl_conn_release, icl_soft_conn_release),
 	KOBJMETHOD(icl_conn_connect, icl_soft_conn_connect),
 	KOBJMETHOD(icl_conn_connected, icl_soft_conn_connected),
 	KOBJMETHOD(icl_conn_task_setup, icl_soft_conn_task_setup),
@@ -1359,6 +1361,11 @@ icl_soft_conn_handoff(struct icl_conn *ic, int fd)
 	error = icl_conn_start(ic);
 
 	return (error);
+}
+
+void
+icl_soft_conn_release(struct icl_conn *ic)
+{
 }
 
 void
