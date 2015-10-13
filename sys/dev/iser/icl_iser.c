@@ -174,7 +174,15 @@ size_t
 iser_conn_pdu_data_segment_length(struct icl_conn *ic,
 				  const struct icl_pdu *request)
 {
-	return (ntoh24(request->ip_bhs->bhs_data_segment_len));
+	uint32_t len = 0;
+
+	len += request->ip_bhs->bhs_data_segment_len[0];
+	len <<= 8;
+	len += request->ip_bhs->bhs_data_segment_len[1];
+	len <<= 8;
+	len += request->ip_bhs->bhs_data_segment_len[2];
+
+	return (len);
 }
 
 void
