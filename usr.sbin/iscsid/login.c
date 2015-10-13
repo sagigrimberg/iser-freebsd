@@ -509,7 +509,6 @@ login_negotiate(struct connection *conn)
 		} else {
 			keys_add_int(request_keys, "MaxRecvDataSegmentLength",
 				     conn->conn_limits.isl_max_data_segment_length);
-			keys_add(request_keys, "RDMAExtensions", "No");
 		}
 	} else {
 		keys_add(request_keys, "HeaderDigest", "None");
