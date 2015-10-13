@@ -493,7 +493,7 @@ iser_rcv_completion(struct iser_rx_desc *rx_desc,
 
 	response = iser_new_pdu(ic, M_NOWAIT);
 	response->ip_bhs = hdr;
-	response->ip_data_len = ntoh24(hdr->bhs_data_segment_len);
+	response->ip_data_len = rx_xfer_len - ISER_HEADERS_LEN;
 
 	/*
 	 * In case we got data in the receive buffer, assign the ip_data_mbuf

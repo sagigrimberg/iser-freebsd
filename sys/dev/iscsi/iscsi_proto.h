@@ -40,8 +40,6 @@
 #define __CTASSERT(x, y)	typedef char __assert_ ## y [(x) ? 1 : -1]
 #endif
 
-#define ntoh24(p) (((p)[0] << 16) | ((p)[1] << 8) | ((p)[2]))
-
 #define	ISCSI_SNGT(x, y)	((int32_t)(x) - (int32_t)(y) > 0)
 #define	ISCSI_SNLT(x, y)	((int32_t)(x) - (int32_t)(y) < 0)
 
