@@ -370,6 +370,24 @@ struct fast_reg_descriptor {
 	struct iser_reg_resources	  rsc;
 };
 
+
+/**
+ * struct iser_beacon - beacon to signal all flush errors were drained
+ *
+ * @send:           send wr
+ * @recv:           recv wr
+ * @flush_lock:     protects flush_cv
+ * @flush_cv:       condition variable for beacon flush
+ */
+struct iser_beacon {
+	union {
+		struct ib_send_wr	send;
+		struct ib_recv_wr	recv;
+	};
+	struct mtx		     flush_lock;
+	struct cv		     flush_cv;
+};
+
 /**
  * struct ib_conn - Infiniband related objects
  *
@@ -386,9 +404,7 @@ struct ib_conn {
 	struct ib_recv_wr	     rx_wr[ISER_MIN_POSTED_RX];
 	struct iser_device          *device;
 	struct iser_comp	    *comp;
-	struct ib_send_wr	     beacon;
-	struct mtx               flush_lock;
-	struct cv                flush_cv;
+	struct iser_beacon	     beacon;
 	struct mtx               lock;
 	union {
 		struct {

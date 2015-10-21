@@ -142,10 +142,11 @@ static void iser_handle_wc(struct ib_wc *wc)
 
 		if (wc->wr_id == ISER_BEACON_WRID) {
 			/* all flush errors were consumed */
-			mtx_lock(&ib_conn->flush_lock);
-			ISER_DBG("got ISER_BEACON_WRID");
-			cv_signal(&ib_conn->flush_cv);
-			mtx_unlock(&ib_conn->flush_lock);
+			mtx_lock(&ib_conn->beacon.flush_lock);
+			ISER_DBG("conn %p got ISER_BEACON_WRID",
+				 container_of(ib_conn, struct iser_conn, ib_conn));
+			cv_signal(&ib_conn->beacon.flush_cv);
+			mtx_unlock(&ib_conn->beacon.flush_lock);
 		} else {
 			iser_handle_comp_error(ib_conn, wc);
 		}
@@ -663,7 +664,8 @@ int
 iser_conn_terminate(struct iser_conn *iser_conn)
 {
 	struct ib_conn *ib_conn = &iser_conn->ib_conn;
-	struct ib_send_wr *bad_wr;
+	struct ib_send_wr *bad_send_wr;
+	struct ib_recv_wr *bad_recv_wr;
 	int err = 0;
 
 	/* terminate the iser conn only if the conn state is UP */
@@ -690,19 +692,36 @@ iser_conn_terminate(struct iser_conn *iser_conn)
 			ISER_ERR("Failed to disconnect, conn: 0x%p err %d",
 				iser_conn, err);
 
-		mtx_lock(&ib_conn->flush_lock);
-		/* post an indication that all flush errors were consumed */
-		err = ib_post_send(ib_conn->qp, &ib_conn->beacon, &bad_wr);
+		mtx_lock(&ib_conn->beacon.flush_lock);
+		memset(&ib_conn->beacon.send, 0, sizeof(struct ib_send_wr));
+		ib_conn->beacon.send.wr_id = ISER_BEACON_WRID;
+		ib_conn->beacon.send.opcode = IB_WR_SEND;
+		/* post an indication that all send flush errors were consumed */
+		err = ib_post_send(ib_conn->qp, &ib_conn->beacon.send, &bad_send_wr);
 		if (err) {
-			ISER_ERR("conn %p failed to post beacon", ib_conn);
-			mtx_unlock(&ib_conn->flush_lock);
+			ISER_ERR("conn %p failed to post send_beacon", ib_conn);
+			mtx_unlock(&ib_conn->beacon.flush_lock);
 			return (1);
 		}
 
-		ISER_DBG("before cv_wait: %p", iser_conn);
-		cv_wait(&ib_conn->flush_cv, &ib_conn->flush_lock);
-		mtx_unlock(&ib_conn->flush_lock);
-		ISER_DBG("after cv_wait: %p", iser_conn);
+		ISER_DBG("before send cv_wait: %p", iser_conn);
+		cv_wait(&ib_conn->beacon.flush_cv, &ib_conn->beacon.flush_lock);
+		ISER_DBG("after send cv_wait: %p", iser_conn);
+
+		memset(&ib_conn->beacon.recv, 0, sizeof(struct ib_recv_wr));
+		ib_conn->beacon.recv.wr_id = ISER_BEACON_WRID;
+		/* post an indication that all recv flush errors were consumed */
+		err = ib_post_recv(ib_conn->qp, &ib_conn->beacon.recv, &bad_recv_wr);
+		if (err) {
+			ISER_ERR("conn %p failed to post recv_beacon", ib_conn);
+			mtx_unlock(&ib_conn->beacon.flush_lock);
+			return (1);
+		}
+
+		ISER_DBG("before recv cv_wait: %p", iser_conn);
+		cv_wait(&ib_conn->beacon.flush_cv, &ib_conn->beacon.flush_lock);
+		mtx_unlock(&ib_conn->beacon.flush_lock);
+		ISER_DBG("after recv cv_wait: %p", iser_conn);
 	}
 
 	return (1);
