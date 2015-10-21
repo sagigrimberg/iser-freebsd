@@ -254,8 +254,8 @@ iser_new_conn(const char *name, struct mtx *lock)
 
 	cv_init(&iser_conn->up_cv, "iser_cv");
 	sx_init(&iser_conn->state_mutex, "iser_conn_state_mutex");
-	mtx_init(&iser_conn->ib_conn.flush_lock, "flush_lock", NULL, MTX_DEF);
-	cv_init(&iser_conn->ib_conn.flush_cv, "flush_cv");
+	mtx_init(&iser_conn->ib_conn.beacon.flush_lock, "flush_lock", NULL, MTX_DEF);
+	cv_init(&iser_conn->ib_conn.beacon.flush_cv, "flush_cv");
 	mtx_init(&iser_conn->ib_conn.lock, "lock", NULL, MTX_DEF);
 
 	ic = &iser_conn->icl_conn;
@@ -272,8 +272,8 @@ iser_conn_free(struct icl_conn *ic)
 {
 	struct iser_conn *iser_conn = icl_to_iser_conn(ic);
 
-	cv_destroy(&iser_conn->ib_conn.flush_cv);
-	mtx_destroy(&iser_conn->ib_conn.flush_lock);
+	cv_destroy(&iser_conn->ib_conn.beacon.flush_cv);
+	mtx_destroy(&iser_conn->ib_conn.beacon.flush_lock);
 	sx_destroy(&iser_conn->state_mutex);
 	cv_destroy(&iser_conn->up_cv);
 	kobj_delete((struct kobj *)iser_conn, M_ICL_ISER);
@@ -353,9 +353,6 @@ iser_conn_connect(struct icl_conn *ic, int domain, int socktype,
 	ib_conn->device = NULL;
 
 	iser_conn->state = ISER_CONN_PENDING;
-
-	ib_conn->beacon.wr_id = ISER_BEACON_WRID;
-	ib_conn->beacon.opcode = IB_WR_SEND;
 
 	ib_conn->cma_id = rdma_create_id(iser_cma_handler, (void *)iser_conn,
 			RDMA_PS_TCP, IB_QPT_RC);
