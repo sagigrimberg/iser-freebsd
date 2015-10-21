@@ -539,6 +539,7 @@ iser_device_find_by_ib_device(struct rdma_cm_id *cma_id)
 
 inc_refcnt:
 	device->refcount++;
+	ISER_INFO("device %p refcount %d", device, device->refcount);
 out:
 	sx_xunlock(&ig.device_list_mutex);
 	return (device);
