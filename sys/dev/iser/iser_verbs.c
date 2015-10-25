@@ -96,9 +96,9 @@ iser_handle_comp_error(struct ib_conn *ib_conn,
 						   ib_conn);
 
 	if (is_iser_tx_desc(iser_conn, wr_id)) {
-		ISER_DBG("got send comp error");
+		ISER_DBG("conn %p got send comp error", iser_conn);
 	} else {
-		ISER_DBG("got recv comp error");
+		ISER_DBG("conn %p got recv comp error", iser_conn);
 		ib_conn->post_recv_buf_count--;
 	}
 	if (wc->status != IB_WC_WR_FLUSH_ERR)
@@ -133,18 +133,19 @@ static void iser_handle_wc(struct ib_wc *wc)
 			ISER_ERR("Unknown wc opcode %d", wc->opcode);
 		}
 	} else {
+		struct iser_conn *iser_conn = container_of(ib_conn, struct iser_conn,
+					ib_conn);
 		if (wc->status != IB_WC_WR_FLUSH_ERR) {
-			ISER_ERR("wr id %lx status %d vend_err %x",
-				 wc->wr_id, wc->status, wc->vendor_err);
+			ISER_ERR("conn %p wr id %lx status %d vend_err %x",
+				 iser_conn, wc->wr_id, wc->status, wc->vendor_err);
 		} else {
-			ISER_DBG("flush error: wr id %lx", wc->wr_id);
+			ISER_DBG("flush error: conn %p wr id %lx", iser_conn, wc->wr_id);
 		}
 
 		if (wc->wr_id == ISER_BEACON_WRID) {
 			/* all flush errors were consumed */
 			mtx_lock(&ib_conn->beacon.flush_lock);
-			ISER_DBG("conn %p got ISER_BEACON_WRID",
-				 container_of(ib_conn, struct iser_conn, ib_conn));
+			ISER_DBG("conn %p got ISER_BEACON_WRID", iser_conn);
 			cv_signal(&ib_conn->beacon.flush_cv);
 			mtx_unlock(&ib_conn->beacon.flush_lock);
 		} else {
