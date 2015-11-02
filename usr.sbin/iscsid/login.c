@@ -500,7 +500,6 @@ login_negotiate(struct connection *conn)
 		keys_add(request_keys, "InitialR2T", "Yes");
 		keys_add(request_keys, "MaxOutstandingR2T", "1");
 		if (conn->conn_conf.isc_iser == 1) {
-			/* Hard-coded for like Linux for now */
 			keys_add_int(request_keys, "InitiatorRecvDataSegmentLength",
 					       ISCSI_DEF_INITIATOR_RECV_DATA_SEGMENT_LENGTH);
 			keys_add_int(request_keys, "TargetRecvDataSegmentLength",
