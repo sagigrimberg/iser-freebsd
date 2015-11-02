@@ -104,7 +104,10 @@
 /* support up to 512KB in one RDMA */
 #define ISCSI_ISER_SG_TABLESIZE         (0x80000 >> SHIFT_4K)
 #define ISER_DEF_XMIT_CMDS_MAX 256
-#define ISER_QP_MAX_RECV_DTOS  (ISER_DEF_XMIT_CMDS_MAX)
+
+/* the max RX (recv) WR supported by the iSER QP is defined by                 *
+ * max_recv_wr = commands_max + recv_beacon                                    */
+#define ISER_QP_MAX_RECV_DTOS  (ISER_DEF_XMIT_CMDS_MAX + 1)
 #define ISER_MIN_POSTED_RX		(ISER_DEF_XMIT_CMDS_MAX >> 2)
 
 /* QP settings */
