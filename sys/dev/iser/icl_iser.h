@@ -123,14 +123,15 @@
 
 #define ISER_INFLIGHT_DATAOUTS		8
 
+/* the send_beacon increase the max_send_wr by 1  */
 #define ISER_QP_MAX_REQ_DTOS		(ISER_DEF_XMIT_CMDS_MAX *    \
 					(1 + ISER_INFLIGHT_DATAOUTS) + \
 					ISER_MAX_TX_MISC_PDUS        + \
-					ISER_MAX_RX_MISC_PDUS)
+					ISER_MAX_RX_MISC_PDUS + 1)
 
 #define ISER_GET_MAX_XMIT_CMDS(send_wr) ((send_wr			\
 					 - ISER_MAX_TX_MISC_PDUS	\
-					 - ISER_MAX_RX_MISC_PDUS) /	\
+					 - ISER_MAX_RX_MISC_PDUS - 1) /	\
 					 (1 + ISER_INFLIGHT_DATAOUTS))
 
 #define ISER_WC_BATCH_COUNT   16
