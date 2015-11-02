@@ -132,7 +132,14 @@
 
 #define ISER_WC_BATCH_COUNT   16
 #define ISER_SIGNAL_CMD_COUNT 32
-#define ISER_MAX_CQ_LEN 1024
+
+/* Maximal QP's recommended per CQ. In case we use more QP's per CQ we might   *
+ * encounter a CQ overrun state.                                               */
+#define ISCSI_ISER_MAX_CONN	8
+#define ISER_MAX_RX_LEN		(ISER_QP_MAX_RECV_DTOS * ISCSI_ISER_MAX_CONN)
+#define ISER_MAX_TX_LEN		(ISER_QP_MAX_REQ_DTOS  * ISCSI_ISER_MAX_CONN)
+#define ISER_MAX_CQ_LEN		(ISER_MAX_RX_LEN + ISER_MAX_TX_LEN + \
+				 ISCSI_ISER_MAX_CONN)
 
 #define ISER_ZBVA_NOT_SUPPORTED                0x80
 #define ISER_SEND_W_INV_NOT_SUPPORTED	0x40
