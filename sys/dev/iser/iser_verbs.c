@@ -476,7 +476,7 @@ iser_create_ib_conn_res(struct ib_conn *ib_conn)
 	init_attr.qp_type	= IB_QPT_RC;
 
 	if (dev_attr->max_qp_wr > ISER_QP_MAX_REQ_DTOS) {
-		init_attr.cap.max_send_wr  = ISER_QP_MAX_REQ_DTOS + 1;
+		init_attr.cap.max_send_wr  = ISER_QP_MAX_REQ_DTOS;
 		iser_conn->max_cmds =
 			ISER_GET_MAX_XMIT_CMDS(ISER_QP_MAX_REQ_DTOS);
 	} else {
