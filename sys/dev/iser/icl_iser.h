@@ -455,12 +455,14 @@ struct iser_conn {
  * @connlist_mutex:       protects connlist
  * @connlist:             iser connections global list
  * @desc_cache:           kmem cache for tx dataout
+ * @close_conns_mutex:    serializes conns closure
  */
 struct iser_global {
 	struct sx        device_list_mutex;
 	struct list_head  device_list;
 	struct mtx        connlist_mutex;
 	struct list_head  connlist;
+	struct sx         close_conns_mutex;
 };
 
 extern struct iser_global ig;

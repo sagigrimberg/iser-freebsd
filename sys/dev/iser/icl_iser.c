@@ -530,6 +530,7 @@ icl_iser_load(void)
 	INIT_LIST_HEAD(&ig.device_list);
 	mtx_init(&ig.connlist_mutex, "global_conn_lock", NULL, MTX_DEF);
 	INIT_LIST_HEAD(&ig.connlist);
+	sx_init(&ig.close_conns_mutex,  "global_close_conns_lock");
 
 	return (error);
 }
@@ -542,6 +543,7 @@ icl_iser_unload(void)
 	if (icl_iser_ncons != 0)
 		return (EBUSY);
 
+	sx_destroy(&ig.close_conns_mutex);
 	mtx_destroy(&ig.connlist_mutex);
 	sx_destroy(&ig.device_list_mutex);
 

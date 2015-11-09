@@ -646,6 +646,15 @@ iser_conn_terminate(struct iser_conn *iser_conn)
 	}
 
 	/*
+	 * Todo: This is a temporary workaround.
+	 * We serialize the connection closure using global lock in order to
+	 * receive all posted beacons completions.
+	 * Without Serialization, in case we open many connections (QPs) on
+	 * the same CQ, we might miss beacons because of missing interrupts.
+	 */
+	sx_xlock(&ig.close_conns_mutex);
+
+	/*
 	 * In case we didn't already clean up the cma_id (peer initiated
 	 * a disconnection), we need to Cause the CMA to change the QP
 	 * state to ERROR.
@@ -665,7 +674,7 @@ iser_conn_terminate(struct iser_conn *iser_conn)
 		if (err) {
 			ISER_ERR("conn %p failed to post send_beacon", ib_conn);
 			mtx_unlock(&ib_conn->beacon.flush_lock);
-			return (1);
+			goto out;
 		}
 
 		ISER_DBG("before send cv_wait: %p", iser_conn);
@@ -679,7 +688,7 @@ iser_conn_terminate(struct iser_conn *iser_conn)
 		if (err) {
 			ISER_ERR("conn %p failed to post recv_beacon", ib_conn);
 			mtx_unlock(&ib_conn->beacon.flush_lock);
-			return (1);
+			goto out;
 		}
 
 		ISER_DBG("before recv cv_wait: %p", iser_conn);
@@ -687,7 +696,8 @@ iser_conn_terminate(struct iser_conn *iser_conn)
 		mtx_unlock(&ib_conn->beacon.flush_lock);
 		ISER_DBG("after recv cv_wait: %p", iser_conn);
 	}
-
+out:
+	sx_xunlock(&ig.close_conns_mutex);
 	return (1);
 }
 
