@@ -741,6 +741,7 @@ iser_addr_handler(struct rdma_cm_id *cma_id)
 	if (!device) {
 		ISER_ERR("conn %p device lookup/creation failed",
 			 iser_conn);
+		iser_connect_error(cma_id);
 		return;
 	}
 
@@ -749,6 +750,7 @@ iser_addr_handler(struct rdma_cm_id *cma_id)
 	ret = rdma_resolve_route(cma_id, 1000);
 	if (ret) {
 		ISER_ERR("conn %p resolve route failed: %d", iser_conn, ret);
+		iser_connect_error(cma_id);
 		return;
 	}
 }
