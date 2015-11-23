@@ -250,6 +250,8 @@ iser_create_device_ib_res(struct iser_device *device)
 		TASK_INIT(&comp->task, 0, iser_cq_tasklet_fn, comp);
 		comp->tq = taskqueue_create_fast("iser_taskq", M_NOWAIT,
 				taskqueue_thread_enqueue, &comp->tq);
+		if (!comp->tq)
+			goto tq_err;
 		taskqueue_start_threads(&comp->tq, 1, PI_NET, "iser taskq");
 	}
 
@@ -257,7 +259,7 @@ iser_create_device_ib_res(struct iser_device *device)
 				   IB_ACCESS_REMOTE_WRITE |
 				   IB_ACCESS_REMOTE_READ);
 	if (IS_ERR(device->mr))
-		goto dma_mr_err;
+		goto tq_err;
 
 	INIT_IB_EVENT_HANDLER(&device->event_handler, device->ib_device,
 				iser_event_handler);
@@ -268,9 +270,12 @@ iser_create_device_ib_res(struct iser_device *device)
 
 handler_err:
 	ib_dereg_mr(device->mr);
-dma_mr_err:
-	for (i = 0; i < device->comps_used; i++)
-		taskqueue_free(device->comps[i].tq);
+tq_err:
+	for (i = 0; i < device->comps_used; i++) {
+		struct iser_comp *comp = &device->comps[i];
+		if (comp->tq)
+			taskqueue_free(comp->tq);
+	}
 cq_err:
 	for (i = 0; i < device->comps_used; i++) {
 		struct iser_comp *comp = &device->comps[i];
