@@ -20,6 +20,7 @@ SRCS+=	icl_conn_if.h
 
 CFLAGS+= -I${.CURDIR}/../../
 CFLAGS+= -I${SYSDIR}/ofed/include
+CFLAGS+= -I${SYSDIR}/compat/linuxkpi/common/include
 CFLAGS+= -DCONFIG_INFINIBAND_USER_MEM
 CFLAGS+= -DINET6 -DINET
 CFLAGS+= -fms-extensions
