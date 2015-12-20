@@ -896,13 +896,16 @@ iscsi_pdu_handle_scsi_response(struct icl_pdu *response)
 	 * that the data was transferred
 	 */
 	if (is->is_conn->ic_iser) {
-		if (bhssr->bhssr_status == 0)
-			received = ccb->csio.dxfer_len;
+		u_int32_t  resid = ntohl(bhssr->bhssr_residual_count);
+		if (bhssr->bhssr_flags & BHSSR_FLAGS_RESIDUAL_UNDERFLOW)
+			io->io_received = ccb->csio.dxfer_len - resid;
+		else if (bhssr->bhssr_flags & BHSSR_FLAGS_RESIDUAL_OVERFLOW)
+			ISCSI_SESSION_WARN(is, "overflow: target indicates %d", resid);
 		else
-			received = 0;
-	} else
-		received = io->io_received;
+			io->io_received = ccb->csio.dxfer_len;
+	}
 
+	received = io->io_received;
 	iscsi_outstanding_remove(is, io);
 	ISCSI_SESSION_UNLOCK(is);
 
