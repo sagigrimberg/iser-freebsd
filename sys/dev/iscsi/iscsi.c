@@ -916,6 +916,7 @@ iscsi_pdu_handle_scsi_response(struct icl_pdu *response)
 			ISCSI_SESSION_DEBUG(is, "freezing devq");
 		}
  		ccb->ccb_h.status = CAM_REQ_CMP_ERR | CAM_DEV_QFRZN;
+ 		goto done;
 	} else if (bhssr->bhssr_status == 0) {
 		ccb->ccb_h.status = CAM_REQ_CMP;
 	} else {
@@ -986,7 +987,7 @@ out:
 			csio->resid = csio->dxfer_len - received;
 		}
 	}
-
+done:
 	xpt_done(ccb);
 	icl_pdu_free(response);
 }
