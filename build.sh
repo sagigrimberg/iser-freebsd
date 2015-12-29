@@ -1,11 +1,10 @@
 #!/bin/bash
 
-DESTDIR=/usr
 SHARE=/usr/share/mk
 SYSDIR=/usr/src/sys
-BINDIR=/bin
-SBINDIR=/sbin
-MANDIR=/share/man/man
+BINDIR=/usr/bin
+SBINDIR=/usr/sbin
+MANDIR=/usr/share/man/man
 
 usage()
 {
@@ -16,7 +15,6 @@ usage()
         printf "\t-k                  : Build kernel-space iscsi stack.\n"
         printf "\t-S                  : Share directory path               (default: $SHARE).\n"
         printf "\t-D                  : sys directory path                 (default: $SYSDIR).\n"
-        printf "\t-d                  : Install destination directory path (default: $DESTDIR).\n"
         printf "\t-m                  : Man directory path                 (default: $MANDIR).\n"
         printf "\t-b                  : bin directory path                 (default: $BINDIR).\n"
         printf "\t-s                  : sbin directory path                (default: $SBINDIR).\n"
@@ -30,8 +28,6 @@ read_args()
                         S)      SHARE=$OPTARG
                                 ;;
                         D)      SYSDIR=$OPTARG
-                                ;;
-                        d)      DESTDIR=$OPTARG
                                 ;;
                         m)      MANDIR=$OPTARG
                                 ;;
@@ -82,10 +78,10 @@ main()
 	fi
 
 	if [[ -n $USR ]]; then
-		cmd="make -C $PWD/usr.sbin/iscsid -m $SHARE DESTDIR=$DESTDIR BINDIR=$SBINDIR MANDIR=$MANDIR all install clean cleandepend"
+		cmd="make -C $PWD/usr.sbin/iscsid -m $SHARE BINDIR=$SBINDIR MANDIR=$MANDIR all install clean cleandepend"
 		echo $cmd
 		$cmd
-		cmd="make -C $PWD/usr.bin/iscsictl -m $SHARE DESTDIR=$DESTDIR BINDIR=$BINDIR MANDIR=$MANDIR all install clean cleandepend"
+		cmd="make -C $PWD/usr.bin/iscsictl -m $SHARE BINDIR=$BINDIR MANDIR=$MANDIR all install clean cleandepend"
 		echo $cmd
 		$cmd
 	fi
